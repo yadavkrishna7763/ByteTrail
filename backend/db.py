@@ -26,29 +26,42 @@ _DB_INITIALIZED = False
 
 
 def try_mysql_connection():
-    """Attempt connection to MySQL server."""
+    """Attempt connection to MySQL or TiDB Cloud server."""
     import mysql.connector
 
-    # Ensure database exists
-    conn = mysql.connector.connect(
-        host=DB_HOST,
-        port=DB_PORT,
-        user=DB_USER,
-        password=DB_PASSWORD,
-    )
-    cursor = conn.cursor()
-    cursor.execute(f"CREATE DATABASE IF NOT EXISTS {DB_NAME};")
-    cursor.close()
-    conn.close()
+    connect_kwargs = {
+        "host": DB_HOST,
+        "port": DB_PORT,
+        "user": DB_USER,
+        "password": DB_PASSWORD,
+        "autocommit": True,
+    }
 
-    return mysql.connector.connect(
-        host=DB_HOST,
-        port=DB_PORT,
-        user=DB_USER,
-        password=DB_PASSWORD,
-        database=DB_NAME,
-        autocommit=True,
+    # Enable SSL for TiDB Cloud or remote cloud MySQL (port 4000, tidbcloud domain, or DB_USE_SSL)
+    use_ssl = (
+        os.getenv("DB_USE_SSL", "").lower() in ("true", "1", "yes")
+        or DB_PORT == 4000
+        or "tidbcloud" in str(DB_HOST).lower()
+        or os.getenv("MYSQL_SSL", "").lower() in ("true", "1", "yes")
     )
+    if use_ssl:
+        connect_kwargs["ssl_disabled"] = False
+        connect_kwargs["ssl_verify_cert"] = False
+        connect_kwargs["ssl_verify_identity"] = False
+
+    # Try connecting directly to database
+    try:
+        return mysql.connector.connect(database=DB_NAME, **connect_kwargs)
+    except Exception:
+        try:
+            root_conn = mysql.connector.connect(**connect_kwargs)
+            cursor = root_conn.cursor()
+            cursor.execute(f"CREATE DATABASE IF NOT EXISTS `{DB_NAME}`;")
+            cursor.close()
+            root_conn.close()
+        except Exception:
+            pass
+        return mysql.connector.connect(database=DB_NAME, **connect_kwargs)
 
 
 def get_connection(ensure_init: bool = True):

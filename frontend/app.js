@@ -3,9 +3,22 @@
  * Problem Statement ID: 26106 | Smart India Hackathon
  */
 
-const API_BASE = (typeof window !== "undefined" && window.location && window.location.hostname)
-    ? `${window.location.protocol}//${window.location.hostname}:8000`
-    : "http://127.0.0.1:8000";
+const getApiBase = () => {
+    if (typeof window !== "undefined") {
+        if (window.BYTETRAIL_BACKEND_URL && window.BYTETRAIL_BACKEND_URL.startsWith("http")) {
+            return window.BYTETRAIL_BACKEND_URL.replace(/\/+$/, "");
+        }
+        if (window.localStorage && window.localStorage.getItem("BYTETRAIL_API_BASE")) {
+            return window.localStorage.getItem("BYTETRAIL_API_BASE").replace(/\/+$/, "");
+        }
+        if (window.location && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
+            return `${window.location.protocol}//${window.location.hostname}:8000`;
+        }
+    }
+    return "";
+};
+
+const API_BASE = getApiBase();
 
 // State
 let storedEmails = [];

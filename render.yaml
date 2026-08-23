@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: bytetrail-backend
+    env: python
+    region: oregon
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.12
+      - key: ENABLE_SQLITE_FALLBACK
+        value: "True"
+      - key: DB_USE_SSL
+        value: "True"
