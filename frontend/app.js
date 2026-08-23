@@ -648,18 +648,63 @@ async function handleGoogleOAuthLogin(e) {
     }
 }
 
-// Trigger Deep Historical Scan for Mailbox (Read + Unread)
+// Trigger Deep Historical Scan for Mailbox (Read + Unread in Progressive 10-Email Batches)
 window.deepScanConnectedMailbox = async function(id) {
-    showToast("🔍 Performing deep scan of all historical inbox emails (both read and unread)...", "info");
+    showToast("🚀 Initiating progressive deep scan (10 emails per batch)...", "info");
+    
+    let offset = 0;
+    let pageToken = null;
+    let totalIngested = 0;
+    let totalScanned = 0;
+    let hasMore = true;
+    let batchIndex = 1;
+
     try {
-        const res = await fetch(`${API_BASE}/api/v1/mailboxes/${id}/deep-scan?limit=100`, { method: "POST" });
-        const data = await res.json();
-        if (data.historical_emails_analyzed > 0) {
-            showToast(`✅ Deep scan complete! Analyzed ${data.historical_emails_analyzed} historical emails.`, "success");
-            await loadEmails(true);
-        } else {
-            showToast("Inbox scan complete. All existing messages are already analyzed.", "info");
+        while (hasMore) {
+            showToast(`🔍 Scanning Batch #${batchIndex} (Emails ${offset + 1}–${offset + 10})...`, "info");
+            
+            let url = `${API_BASE}/api/v1/mailboxes/${id}/deep-scan?batch_size=10&offset=${offset}`;
+            if (pageToken) {
+                url += `&page_token=${encodeURIComponent(pageToken)}`;
+            }
+
+            const res = await fetch(url, { method: "POST" });
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.detail || `Server error (${res.status})`);
+            }
+
+            const data = await res.json();
+            const batchIngested = data.batch_analyzed || 0;
+            const scannedInBatch = data.total_scanned_in_batch || batchIngested || 0;
+
+            totalIngested += batchIngested;
+            totalScanned += scannedInBatch;
+            hasMore = Boolean(data.has_more);
+            offset = data.next_offset !== undefined ? data.next_offset : (offset + 10);
+            pageToken = data.next_page_token || null;
+
+            // Instantly refresh cases and radar map as each 10-email batch completes
+            if (batchIngested > 0) {
+                await loadEmails(true);
+                await loadConnectedMailboxes();
+            }
+
+            if (!hasMore || scannedInBatch === 0) {
+                break;
+            }
+
+            batchIndex++;
+            // Small pause between batches to ensure smooth UI and avoid network throttling
+            await new Promise(r => setTimeout(r, 400));
         }
+
+        if (totalIngested > 0) {
+            showToast(`🎉 Deep Scan Complete! Analyzed ${totalIngested} new threat emails across entire inbox history.`, "success");
+        } else {
+            showToast(`✅ Scanned ${totalScanned} inbox emails. All messages are already fully indexed & analyzed.`, "success");
+        }
+        await loadEmails(true);
         await loadConnectedMailboxes();
     } catch (e) {
         showToast(`Deep scan error: ${e.message}`, "error");

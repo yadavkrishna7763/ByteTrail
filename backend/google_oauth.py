@@ -2,7 +2,7 @@ import os
 import base64
 import logging
 import urllib.parse
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 import httpx
 
 from pathlib import Path
@@ -111,12 +111,16 @@ def fetch_user_email(access_token: str) -> str:
         return data.get("email", "unknown@gmail.com")
 
 
-def fetch_gmail_raw_messages(access_token: str, max_results: int = 25) -> List[bytes]:
+def fetch_gmail_raw_messages(
+    access_token: str,
+    max_results: int = 10,
+    page_token: Optional[str] = None
+) -> Tuple[List[bytes], Optional[str]]:
     """
-    Fetch raw RFC 822 email bytes from Gmail REST API for the authenticated user.
+    Fetch raw RFC 822 email bytes from Gmail REST API for the authenticated user with pagination.
+    Returns (raw_emails_list, next_page_token).
     """
     if access_token.startswith("mock_google_access_token_"):
-        # Return realistic simulated phishing and safe RFC 822 emails for demonstration
         sample_eml = (
             b"From: security-alert@paypal-verification.ru\r\n"
             b"To: me@gmail.com\r\n"
@@ -125,14 +129,18 @@ def fetch_gmail_raw_messages(access_token: str, max_results: int = 25) -> List[b
             b"Content-Type: text/plain; charset=UTF-8\r\n\r\n"
             b"Dear user, your account has been temporarily restricted. Please verify your login credentials immediately: http://paypal-verification.ru/login"
         )
-        return [sample_eml]
+        return [sample_eml], None
 
     headers = {"Authorization": f"Bearer {access_token}"}
     raw_emails = []
+    next_page_token = None
+
+    url = f"{GMAIL_MESSAGES_ENDPOINT}?maxResults={max_results}"
+    if page_token:
+        url += f"&pageToken={urllib.parse.quote(page_token)}"
 
     with httpx.Client(timeout=20.0) as client:
-        # 1. List message IDs
-        list_resp = client.get(f"{GMAIL_MESSAGES_ENDPOINT}?maxResults={max_results}", headers=headers)
+        list_resp = client.get(url, headers=headers)
         if list_resp.status_code != 200:
             logger.warning("Gmail API messages list returned %d (gmail.readonly scope omitted on GCP consent screen). Generating initial threat test cases.", list_resp.status_code)
             sample_eml = (
@@ -143,22 +151,22 @@ def fetch_gmail_raw_messages(access_token: str, max_results: int = 25) -> List[b
                 b"Content-Type: text/plain; charset=UTF-8\r\n\r\n"
                 b"Dear user, your account has been temporarily restricted. Please verify your login credentials immediately: http://paypal-verification.ru/login"
             )
-            return [sample_eml]
+            return [sample_eml], None
 
-        messages_list = list_resp.json().get("messages", [])
+        data = list_resp.json()
+        messages_list = data.get("messages", [])
+        next_page_token = data.get("nextPageToken")
         
-        # 2. Fetch raw email bytes for each message
         for item in messages_list:
             msg_id = item["id"]
             msg_resp = client.get(f"{GMAIL_MESSAGES_ENDPOINT}/{msg_id}?format=raw", headers=headers)
             if msg_resp.status_code == 200:
                 raw_base64 = msg_resp.json().get("raw", "")
                 if raw_base64:
-                    # Google uses URL-safe base64 encoding with '-' and '_'
                     try:
                         raw_bytes = base64.urlsafe_b64decode(raw_base64.encode("ASCII"))
                         raw_emails.append(raw_bytes)
                     except Exception as e:
                         logger.error("Error decoding Gmail raw message %s: %s", msg_id, e)
 
-    return raw_emails
+    return raw_emails, next_page_token

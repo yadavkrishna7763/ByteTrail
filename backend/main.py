@@ -326,7 +326,8 @@ def sync_mailbox(mailbox_id: int):
         raise HTTPException(status_code=404, detail="Connected mailbox not found.")
 
     try:
-        ingested = mailbox_manager._poll_single_mailbox(match, include_read=False)
+        res = mailbox_manager._poll_single_mailbox(match, include_read=False, limit=20)
+        ingested = res.get("records", []) if isinstance(res, dict) else res
         if ingested:
             update_mailbox_stats(mailbox_id, count_increment=len(ingested))
 
@@ -347,9 +348,15 @@ def sync_mailbox(mailbox_id: int):
     "/api/v1/mailboxes/{mailbox_id}/deep-scan",
     tags=["Connected Mailboxes"],
 )
-def deep_scan_mailbox(mailbox_id: int, limit: int = 50):
+def deep_scan_mailbox(
+    mailbox_id: int,
+    batch_size: int = 10,
+    offset: int = 0,
+    page_token: Optional[str] = None
+):
     """
-    Deep scan all historical emails (both read and unread) in the connected inbox.
+    Progressive deep scan of historical emails in batches of 10 (both read and unread).
+    Iterate with offset/page_token until has_more is False to scan the entire mailbox.
     """
     mailboxes = get_all_connected_mailboxes()
     match = next((m for m in mailboxes if m["id"] == mailbox_id), None)
@@ -357,14 +364,26 @@ def deep_scan_mailbox(mailbox_id: int, limit: int = 50):
         raise HTTPException(status_code=404, detail="Connected mailbox not found.")
 
     try:
-        ingested = mailbox_manager._poll_single_mailbox(match, include_read=True, limit=limit)
+        res = mailbox_manager._poll_single_mailbox(
+            match,
+            include_read=True,
+            limit=batch_size or 10,
+            offset=offset or 0,
+            page_token=page_token
+        )
+        ingested = res.get("records", []) if isinstance(res, dict) else res
         if ingested:
             update_mailbox_stats(mailbox_id, count_increment=len(ingested))
 
         return {
             "status": "success",
             "mailbox": match["email_address"],
-            "historical_emails_analyzed": len(ingested),
+            "batch_analyzed": len(ingested),
+            "total_scanned_in_batch": res.get("total_scanned_in_batch", len(ingested)),
+            "has_more": res.get("has_more", False),
+            "next_offset": res.get("next_offset", offset + len(ingested)),
+            "next_page_token": res.get("next_page_token"),
+            "total_inbox_count": res.get("total_inbox_count"),
             "cases": [r["id"] for r in ingested],
         }
     except Exception as exc:

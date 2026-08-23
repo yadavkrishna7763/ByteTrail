@@ -107,7 +107,8 @@ class MultiMailboxManager:
 
         for mb in mailboxes:
             try:
-                ingested = self._poll_single_mailbox(mb)
+                res = self._poll_single_mailbox(mb)
+                ingested = res.get("records", []) if isinstance(res, dict) else res
                 if ingested:
                     all_ingested.extend(ingested)
                     update_mailbox_stats(mb["id"], count_increment=len(ingested))
@@ -117,8 +118,15 @@ class MultiMailboxManager:
         self._stats["last_poll_utc"] = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
         return all_ingested
 
-    def _poll_single_mailbox(self, mb: dict, include_read: bool = False, limit: int = 50) -> List[Dict]:
-        """Connect to single mailbox and extract new or historical emails."""
+    def _poll_single_mailbox(
+        self,
+        mb: dict,
+        include_read: bool = False,
+        limit: int = 10,
+        offset: int = 0,
+        page_token: Optional[str] = None
+    ) -> Dict:
+        """Connect to single mailbox and extract new or historical emails in progressive batches."""
         from compliance import calculate_evidence_hash
         from db import check_email_exists_by_hash, get_email_details
 
@@ -134,11 +142,11 @@ class MultiMailboxManager:
         access_token = mb.get("access_token", "")
         if auth_type == "oauth" or (access_token and "gmail" in host.lower()):
             if not access_token:
-                return []
+                return {"records": [], "has_more": False, "next_offset": offset, "next_page_token": None, "total_scanned_in_batch": 0}
             try:
                 from google_oauth import fetch_gmail_raw_messages
                 from eml_parser import parse_eml_bytes
-                raw_emls = fetch_gmail_raw_messages(access_token, max_results=limit or 25)
+                raw_emls, next_token = fetch_gmail_raw_messages(access_token, max_results=limit or 10, page_token=page_token)
                 ingested_records = []
                 for eml_bytes in raw_emls:
                     try:
@@ -159,10 +167,16 @@ class MultiMailboxManager:
                         self._stats["total_ingested"] += 1
                     except Exception as e:
                         logger.error("Error processing OAuth email part: %s", e)
-                return ingested_records
+                return {
+                    "records": ingested_records,
+                    "has_more": bool(next_token and len(raw_emls) > 0),
+                    "next_offset": offset + len(raw_emls),
+                    "next_page_token": next_token,
+                    "total_scanned_in_batch": len(raw_emls),
+                }
             except Exception as exc:
                 logger.error("OAuth poll error for %s: %s", username, exc)
-                return []
+                return {"records": [], "has_more": False, "next_offset": offset, "next_page_token": None, "total_scanned_in_batch": 0}
 
         if use_ssl:
             client = imaplib.IMAP4_SSL(host, port, timeout=15)
@@ -178,16 +192,17 @@ class MultiMailboxManager:
         if status != "OK" or not messages or not messages[0]:
             client.close()
             client.logout()
-            return []
+            return {"records": [], "has_more": False, "next_offset": offset, "next_page_token": None, "total_scanned_in_batch": 0, "total_inbox_count": 0}
+
+        all_ids = messages[0].split()
+        total_inbox_count = len(all_ids)
+        all_ids_reversed = list(reversed(all_ids))
+
+        batch_ids = all_ids_reversed[offset : offset + limit] if limit else all_ids_reversed[offset:]
+        has_more = (offset + len(batch_ids)) < total_inbox_count
 
         ingested_records = []
-        email_ids = messages[0].split()
-
-        # Slice to the most recent 'limit' emails
-        if limit and len(email_ids) > limit:
-            email_ids = email_ids[-limit:]
-
-        for e_id in reversed(email_ids):
+        for e_id in batch_ids:
             try:
                 status, msg_data = client.fetch(e_id, "(RFC822)")
                 if status != "OK" or not msg_data or not msg_data[0]:
@@ -220,7 +235,6 @@ class MultiMailboxManager:
                 evidence_hash = calculate_evidence_hash(sender, subject, raw_headers, clean_body)
                 existing_id = check_email_exists_by_hash(evidence_hash)
                 if existing_id:
-                    # Already analyzed previously
                     continue
 
                 # Trigger ByteTrail 4-vector intelligence pipeline
@@ -241,7 +255,14 @@ class MultiMailboxManager:
 
         client.close()
         client.logout()
-        return ingested_records
+        return {
+            "records": ingested_records,
+            "has_more": has_more,
+            "next_offset": offset + len(batch_ids),
+            "next_page_token": None,
+            "total_inbox_count": total_inbox_count,
+            "total_scanned_in_batch": len(batch_ids),
+        }
 
 
 # Global singleton instance
