@@ -172,6 +172,9 @@ def init_db(conn=None):
             "ALTER TABLE geo_data ADD COLUMN isp_asn VARCHAR(255);",
             "ALTER TABLE geo_data ADD COLUMN is_vpn_tor BOOLEAN DEFAULT FALSE;",
             "ALTER TABLE risk_scores ADD COLUMN threat_actor VARCHAR(255) DEFAULT 'Unattributed';",
+            "ALTER TABLE connected_mailboxes ADD COLUMN auth_type VARCHAR(20) DEFAULT 'password';",
+            "ALTER TABLE connected_mailboxes ADD COLUMN access_token TEXT;",
+            "ALTER TABLE connected_mailboxes ADD COLUMN refresh_token TEXT;",
         ]
         for m in migrations:
             try:
@@ -636,6 +639,81 @@ def update_mailbox_stats(mailbox_id: int, count_increment: int = 1):
             (count_increment, mailbox_id),
         )
 
+    cursor.close()
+    conn.commit()
+    conn.close()
+
+
+def upsert_oauth_mailbox(email_address: str, provider: str = "google", access_token: str = "", refresh_token: str = "") -> int:
+    """Register or update an OAuth-authenticated mailbox (e.g. Google OAuth 2.0)."""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    if ACTIVE_ENGINE == "mysql":
+        cursor.execute("SELECT id FROM connected_mailboxes WHERE email_address = %s LIMIT 1", (email_address,))
+        row = cursor.fetchone()
+        if row:
+            mb_id = row[0] if isinstance(row, (list, tuple)) else row["id"]
+            cursor.execute(
+                """
+                UPDATE connected_mailboxes 
+                SET auth_type = 'oauth', access_token = %s, refresh_token = COALESCE(%s, refresh_token), is_active = 1
+                WHERE id = %s
+                """,
+                (access_token, refresh_token or None, mb_id),
+            )
+        else:
+            cursor.execute(
+                """
+                INSERT INTO connected_mailboxes (email_address, provider, host, port, username, password, folder, auth_type, access_token, refresh_token, is_active)
+                VALUES (%s, %s, 'gmail.googleapis.com', 443, %s, '', 'INBOX', 'oauth', %s, %s, 1)
+                """,
+                (email_address, provider, email_address, access_token, refresh_token),
+            )
+            mb_id = cursor.lastrowid
+    else:
+        cursor.execute("SELECT id FROM connected_mailboxes WHERE email_address = ? LIMIT 1", (email_address,))
+        row = cursor.fetchone()
+        if row:
+            mb_id = row[0] if isinstance(row, (list, tuple)) else row["id"]
+            cursor.execute(
+                """
+                UPDATE connected_mailboxes 
+                SET auth_type = 'oauth', access_token = ?, refresh_token = COALESCE(?, refresh_token), is_active = 1
+                WHERE id = ?
+                """,
+                (access_token, refresh_token or None, mb_id),
+            )
+        else:
+            cursor.execute(
+                """
+                INSERT INTO connected_mailboxes (email_address, provider, host, port, username, password, folder, auth_type, access_token, refresh_token, is_active)
+                VALUES (?, ?, 'gmail.googleapis.com', 443, ?, '', 'INBOX', 'oauth', ?, ?, 1)
+                """,
+                (email_address, provider, email_address, access_token, refresh_token),
+            )
+            mb_id = cursor.lastrowid
+
+    cursor.close()
+    conn.commit()
+    conn.close()
+    return mb_id
+
+
+def update_mailbox_tokens(mailbox_id: int, access_token: str, refresh_token: str = None):
+    """Update OAuth tokens after token refresh."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    if ACTIVE_ENGINE == "mysql":
+        cursor.execute(
+            "UPDATE connected_mailboxes SET access_token = %s, refresh_token = COALESCE(%s, refresh_token) WHERE id = %s",
+            (access_token, refresh_token, mailbox_id),
+        )
+    else:
+        cursor.execute(
+            "UPDATE connected_mailboxes SET access_token = ?, refresh_token = COALESCE(?, refresh_token) WHERE id = ?",
+            (access_token, refresh_token, mailbox_id),
+        )
     cursor.close()
     conn.commit()
     conn.close()

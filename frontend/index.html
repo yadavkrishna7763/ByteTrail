@@ -515,6 +515,27 @@
                 <button class="btn-close-modal" id="btn-close-connect-modal">&times;</button>
             </div>
             <div style="padding: 1.5rem;">
+                <!-- 1-Click Google OAuth 2.0 Section -->
+                <div style="background: rgba(37, 99, 235, 0.08); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 0.5rem; padding: 1rem; margin-bottom: 1.25rem; text-align: center;">
+                    <h4 style="font-size: 0.88rem; color: var(--text-bright); margin-bottom: 0.3rem; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 0.4rem;">
+                        <i class="fa-brands fa-google" style="color: #60a5fa;"></i> Direct Google OAuth 2.0 Login
+                    </h4>
+                    <p style="font-size: 0.74rem; color: var(--text-muted); margin-bottom: 0.85rem;">
+                        Zero passwords needed • Connects in 1 click via official Google Gmail API
+                    </p>
+                    <button type="button" class="btn btn-cyber-primary" id="btn-google-oauth-login" style="width: 100%; justify-content: center; gap: 0.5rem; background: #2563eb; font-weight: 600;">
+                        <i class="fa-brands fa-google"></i>
+                        <span>Sign in & Connect with Google</span>
+                        <span class="spinner hidden" id="google-oauth-spinner"></span>
+                    </button>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem;">
+                    <div style="flex: 1; height: 1px; background: var(--border-subtle);"></div>
+                    <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-family: var(--font-mono); letter-spacing: 0.04em;">OR Connect via IMAP / App Password</span>
+                    <div style="flex: 1; height: 1px; background: var(--border-subtle);"></div>
+                </div>
+
                 <form id="connect-mailbox-form" style="display: flex; flex-direction: column; gap: 1rem;">
                     <div class="form-field">
                         <label for="mb-provider">Email Provider</label>

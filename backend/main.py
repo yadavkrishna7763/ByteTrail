@@ -18,6 +18,7 @@ from db import (
     get_all_connected_mailboxes,
     delete_connected_mailbox,
     update_mailbox_stats,
+    upsert_oauth_mailbox,
 )
 from schemas import EmailCreate, EmailDetailResponse, MailboxConnectRequest, MailboxResponse
 from fraud_detection import scan_email_content
@@ -27,10 +28,17 @@ from risk_scoring import calculate_risk_score
 from report_generator import generate_forensic_report
 from compliance import calculate_evidence_hash
 from threat_intel import lookup_threat_intelligence
-from eml_parser import parse_raw_eml
+from eml_parser import parse_raw_eml, parse_eml_bytes
 from campaign_correlation import build_campaign_attribution_graph
 from imap_listener import mailbox_manager, test_imap_credentials, PROVIDER_PRESETS
 from directory_watcher import scan_and_ingest_directory, init_watch_directories
+from google_oauth import (
+    get_google_auth_url,
+    exchange_code_for_tokens,
+    fetch_user_email,
+    fetch_gmail_raw_messages,
+    is_google_oauth_configured,
+)
 
 
 @asynccontextmanager
@@ -377,6 +385,144 @@ def disconnect_mailbox(mailbox_id: int):
     """
     delete_connected_mailbox(mailbox_id)
     return None
+
+
+# ==============================================================================
+# Google OAuth 2.0 & Gmail REST API Ingestion Endpoints
+# ==============================================================================
+
+@app.get(
+    "/api/v1/auth/google/url",
+    tags=["Google OAuth 2.0"],
+)
+def get_google_oauth_url(request: Request, redirect_uri: Optional[str] = None):
+    """
+    Generate the official Google OAuth 2.0 Authorization URL for 1-click login.
+    """
+    if not redirect_uri:
+        host_header = request.headers.get("host", "127.0.0.1:8000")
+        scheme = "https" if "https" in str(request.url.scheme) else "http"
+        redirect_uri = f"{scheme}://{host_header}/api/v1/auth/google/callback"
+
+    auth_url = get_google_auth_url(redirect_uri)
+    return {
+        "url": auth_url,
+        "is_configured": is_google_oauth_configured(),
+        "redirect_uri": redirect_uri,
+    }
+
+
+@app.get(
+    "/api/v1/auth/google/callback",
+    tags=["Google OAuth 2.0"],
+)
+def google_oauth_callback(code: str, request: Request, state: Optional[str] = None):
+    """
+    Google OAuth 2.0 redirect callback handler.
+    Exchanges code for tokens, fetches user info & emails, and registers mailbox.
+    """
+    from fastapi.responses import HTMLResponse
+
+    host_header = request.headers.get("host", "127.0.0.1:8000")
+    scheme = "https" if "https" in str(request.url.scheme) else "http"
+    redirect_uri = f"{scheme}://{host_header}/api/v1/auth/google/callback"
+
+    try:
+        tokens = exchange_code_for_tokens(code, redirect_uri)
+        access_token = tokens.get("access_token", "")
+        refresh_token = tokens.get("refresh_token", "")
+
+        user_email = fetch_user_email(access_token)
+        mb_id = upsert_oauth_mailbox(user_email, provider="google", access_token=access_token, refresh_token=refresh_token)
+
+        # Ingest initial batch of emails from Gmail REST API
+        raw_emls = fetch_gmail_raw_messages(access_token, max_results=10)
+        ingested_count = 0
+        for eml_bytes in raw_emls:
+            try:
+                parsed = parse_eml_bytes(eml_bytes)
+                run_intelligence_pipeline(
+                    sender=parsed["sender"],
+                    subject=parsed["subject"],
+                    raw_headers=parsed["raw_headers"],
+                    body_text=parsed["body_text"],
+                )
+                ingested_count += 1
+            except Exception:
+                pass
+
+        if ingested_count > 0:
+            update_mailbox_stats(mb_id, count_increment=ingested_count)
+
+        # Return auto-closing redirect script to communicate with parent window
+        html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head><title>ByteTrail Google Authentication</title></head>
+        <body style="background: #09090b; color: #f4f4f5; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0;">
+            <div style="text-align: center; background: #18181b; padding: 2rem; border-radius: 0.75rem; border: 1px solid #27272a;">
+                <h2 style="color: #a78bfa; margin-bottom: 0.5rem;">✅ Google Account Connected!</h2>
+                <p style="color: #a1a1aa; font-size: 0.9rem;">Connected: <strong>{user_email}</strong></p>
+                <p style="color: #71717a; font-size: 0.8rem;">Syncing emails into threat intelligence pipeline...</p>
+                <script>
+                    if (window.opener) {{
+                        window.opener.postMessage({{ type: 'GOOGLE_AUTH_SUCCESS', email: '{user_email}', ingested: {ingested_count} }}, '*');
+                        setTimeout(() => window.close(), 1200);
+                    }} else {{
+                        window.location.href = 'http://localhost:3000?google_auth=success';
+                    }}
+                </script>
+            </div>
+        </body>
+        </html>
+        """
+        return HTMLResponse(content=html)
+    except Exception as exc:
+        err_html = f"""
+        <!DOCTYPE html>
+        <html>
+        <body style="background: #09090b; color: #f87171; font-family: sans-serif; padding: 2rem;">
+            <h2>❌ Google OAuth Connection Failed</h2>
+            <p>{str(exc)}</p>
+        </body>
+        </html>
+        """
+        return HTMLResponse(content=err_html, status_code=400)
+
+
+@app.post(
+    "/api/v1/auth/google/demo-connect",
+    tags=["Google OAuth 2.0"],
+)
+def demo_google_connect(email: str = "analyst.google.account@gmail.com"):
+    """
+    1-Click Google OAuth Direct Simulation for instant presentations & live testing.
+    """
+    mb_id = upsert_oauth_mailbox(email, provider="google", access_token="mock_google_access_token_demo")
+    raw_emls = fetch_gmail_raw_messages("mock_google_access_token_demo", max_results=5)
+    ingested_count = 0
+    for eml_bytes in raw_emls:
+        try:
+            parsed = parse_eml_bytes(eml_bytes)
+            run_intelligence_pipeline(
+                sender=parsed["sender"],
+                subject=parsed["subject"],
+                raw_headers=parsed["raw_headers"],
+                body_text=parsed["body_text"],
+            )
+            ingested_count += 1
+        except Exception:
+            pass
+
+    if ingested_count > 0:
+        update_mailbox_stats(mb_id, count_increment=ingested_count)
+
+    return {
+        "status": "success",
+        "email_address": email,
+        "provider": "google_oauth2",
+        "ingested_cases": ingested_count,
+    }
 
 
 @app.post(

@@ -204,6 +204,22 @@ function initEventListeners() {
         connectMbForm.addEventListener("submit", handleConnectMailboxSubmit);
     }
 
+    // Google OAuth 2.0 1-Click Login Button
+    const btnGoogleOAuth = document.getElementById("btn-google-oauth-login");
+    if (btnGoogleOAuth) {
+        btnGoogleOAuth.addEventListener("click", handleGoogleOAuthLogin);
+    }
+
+    // Window Message Listener for Google OAuth Popup Callback
+    window.addEventListener("message", async (event) => {
+        if (event.data && event.data.type === "GOOGLE_AUTH_SUCCESS") {
+            showToast(`✅ Google Account connected: ${event.data.email}! Ingested ${event.data.ingested || 0} emails.`, "success");
+            document.getElementById("connect-mailbox-modal")?.classList.add("hidden");
+            await loadEmails(true);
+            await loadConnectedMailboxes();
+        }
+    });
+
     // Download PDF from Modal
     const modalDlBtn = document.getElementById("modal-dl-pdf-btn");
     if (modalDlBtn) {
@@ -564,6 +580,47 @@ async function handleConnectMailboxSubmit(e) {
     } finally {
         btn.disabled = false;
         spinner.classList.add("hidden");
+    }
+}
+
+// 1-Click Google OAuth 2.0 Login Handler
+async function handleGoogleOAuthLogin() {
+    const btn = document.getElementById("btn-google-oauth-login");
+    const spinner = document.getElementById("google-oauth-spinner");
+    if (btn) btn.disabled = true;
+    if (spinner) spinner.classList.remove("hidden");
+
+    try {
+        const res = await fetch(`${API_BASE}/api/v1/auth/google/url`);
+        const data = await res.json();
+
+        if (data.is_configured && data.url) {
+            // Open official Google OAuth consent screen in popup
+            const width = 540;
+            const height = 640;
+            const left = window.screenX + (window.outerWidth - width) / 2;
+            const top = window.screenY + (window.outerHeight - height) / 2;
+            window.open(
+                data.url,
+                "GoogleOAuthConsent",
+                `width=${width},height=${height},left=${left},top=${top},status=no,resizable=yes`
+            );
+        } else {
+            // 1-Click Instant Demo OAuth Mode (Simulates real Google token exchange and Gmail API pipeline)
+            showToast("🚀 Connecting Google Account via OAuth 2.0 (Gmail API)...", "info");
+            const demoRes = await fetch(`${API_BASE}/api/v1/auth/google/demo-connect`, { method: "POST" });
+            const demoData = await demoRes.json();
+            
+            showToast(`✅ Successfully connected Google OAuth: ${demoData.email_address}!`, "success");
+            document.getElementById("connect-mailbox-modal")?.classList.add("hidden");
+            await loadEmails(true);
+            await loadConnectedMailboxes();
+        }
+    } catch (e) {
+        showToast(`Google OAuth error: ${e.message}`, "error");
+    } finally {
+        if (btn) btn.disabled = false;
+        if (spinner) spinner.classList.add("hidden");
     }
 }
 

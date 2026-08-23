@@ -50,3 +50,7 @@ def parse_raw_eml(eml_bytes: bytes) -> Dict[str, str]:
         "raw_headers": raw_headers,
         "body_text": body_text.strip() or "(No readable text body found in EML)",
     }
+
+
+# Alias
+parse_eml_bytes = parse_raw_eml
