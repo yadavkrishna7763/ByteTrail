@@ -139,6 +139,8 @@ def fetch_gmail_raw_messages(
     if page_token:
         url += f"&pageToken={urllib.parse.quote(page_token)}"
 
+    import concurrent.futures
+
     with httpx.Client(timeout=60.0) as client:
         list_resp = client.get(url, headers=headers)
         if list_resp.status_code != 200:
@@ -156,17 +158,22 @@ def fetch_gmail_raw_messages(
         data = list_resp.json()
         messages_list = data.get("messages", [])
         next_page_token = data.get("nextPageToken")
-        
-        for item in messages_list:
+
+        def fetch_single_msg(item):
             msg_id = item["id"]
-            msg_resp = client.get(f"{GMAIL_MESSAGES_ENDPOINT}/{msg_id}?format=raw", headers=headers)
-            if msg_resp.status_code == 200:
-                raw_base64 = msg_resp.json().get("raw", "")
-                if raw_base64:
-                    try:
-                        raw_bytes = base64.urlsafe_b64decode(raw_base64.encode("ASCII"))
-                        raw_emails.append(raw_bytes)
-                    except Exception as e:
-                        logger.error("Error decoding Gmail raw message %s: %s", msg_id, e)
+            try:
+                msg_resp = client.get(f"{GMAIL_MESSAGES_ENDPOINT}/{msg_id}?format=raw", headers=headers)
+                if msg_resp.status_code == 200:
+                    raw_base64 = msg_resp.json().get("raw", "")
+                    if raw_base64:
+                        return base64.urlsafe_b64decode(raw_base64.encode("ASCII"))
+            except Exception as e:
+                logger.error("Error decoding Gmail raw message %s: %s", msg_id, e)
+            return None
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=15) as executor:
+            for r in executor.map(fetch_single_msg, messages_list):
+                if r is not None:
+                    raw_emails.append(r)
 
     return raw_emails, next_page_token

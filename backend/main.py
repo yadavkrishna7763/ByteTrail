@@ -459,8 +459,8 @@ def google_oauth_callback(code: str, request: Request, state: Optional[str] = No
         user_email = fetch_user_email(access_token)
         mb_id = upsert_oauth_mailbox(user_email, provider="google", access_token=access_token, refresh_token=refresh_token)
 
-        # Ingest initial batch of emails from Gmail REST API
-        raw_emls = fetch_gmail_raw_messages(access_token, max_results=10)
+        # Ingest initial full batch of emails from Gmail REST API (up to 500 in one go)
+        raw_emls, _ = fetch_gmail_raw_messages(access_token, max_results=500)
         ingested_count = 0
         for eml_bytes in raw_emls:
             try:
