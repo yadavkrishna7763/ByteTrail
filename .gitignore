@@ -25,6 +25,8 @@ yarn-error.log*
 .env
 .env.local
 *.env
+*.db
+*.sqlite3
 
 # Generated Output / Reports
 reports/*.pdf

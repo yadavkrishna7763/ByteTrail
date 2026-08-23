@@ -1,0 +1,213 @@
+import imaplib
+import email
+import logging
+import threading
+import time
+from typing import Optional, Dict, List
+from datetime import datetime
+
+logger = logging.getLogger("bytetrail.imap")
+
+# Provider presets for instant auto-discovery
+PROVIDER_PRESETS = {
+    "gmail": {
+        "host": "imap.gmail.com",
+        "port": 993,
+        "use_ssl": True,
+        "name": "Google Gmail / Google Workspace",
+        "instructions": "Use a 16-character Google App Password (myaccount.google.com/apppasswords)",
+    },
+    "outlook": {
+        "host": "outlook.office365.com",
+        "port": 993,
+        "use_ssl": True,
+        "name": "Microsoft Outlook / Office 365 / Hotmail",
+        "instructions": "Use your Microsoft Account Password or App Password",
+    },
+    "yahoo": {
+        "host": "imap.mail.yahoo.com",
+        "port": 993,
+        "use_ssl": True,
+        "name": "Yahoo Mail",
+        "instructions": "Generate a Yahoo App Password in Account Security Settings",
+    },
+    "icloud": {
+        "host": "imap.mail.me.com",
+        "port": 993,
+        "use_ssl": True,
+        "name": "Apple iCloud Mail",
+        "instructions": "Generate an app-specific password at appleid.apple.com",
+    },
+}
+
+
+def test_imap_credentials(host: str, port: int, username: str, password: str, use_ssl: bool = True, folder: str = "INBOX") -> Dict:
+    """Test connection and login to an IMAP mailbox."""
+    clean_user = username.strip()
+    clean_pwd = password.replace(" ", "").strip() if ("gmail" in host or "google" in host) else password.strip()
+    try:
+        if use_ssl:
+            client = imaplib.IMAP4_SSL(host, port, timeout=12)
+        else:
+            client = imaplib.IMAP4(host, port, timeout=12)
+
+        client.login(clean_user, clean_pwd)
+        status, _ = client.select(folder)
+        client.close()
+        client.logout()
+
+        return {"success": True, "message": "Successfully connected and authenticated."}
+    except Exception as exc:
+        return {"success": False, "message": f"Connection failed: {str(exc)}"}
+
+
+class MultiMailboxManager:
+    """
+    Manages continuous automated monitoring for multiple user-connected email accounts.
+    """
+
+    def __init__(self):
+        self._poller_thread = None
+        self._is_running = False
+        self._pipeline_runner = None
+        self._active_accounts = {}
+        self._stats = {"total_ingested": 0, "last_poll_utc": None}
+
+    def register_pipeline_runner(self, runner_func):
+        self._pipeline_runner = runner_func
+
+    def start_background_poller(self, interval_seconds: int = 10):
+        """Start background daemon thread that polls all active accounts."""
+        if self._is_running:
+            return
+
+        self._is_running = True
+
+        def _poll_loop():
+            logger.info("Starting ByteTrail Mailbox Poller Daemon (Interval: %ds)", interval_seconds)
+            while self._is_running:
+                try:
+                    self.poll_all_accounts()
+                except Exception as exc:
+                    logger.error("Error in mailbox poll loop: %s", exc)
+                time.sleep(interval_seconds)
+
+        self._poller_thread = threading.Thread(target=_poll_loop, daemon=True)
+        self._poller_thread.start()
+
+    def poll_all_accounts(self) -> List[Dict]:
+        """Poll each registered active email account for unread messages."""
+        if not self._pipeline_runner:
+            return []
+
+        from db import get_all_connected_mailboxes, update_mailbox_stats
+
+        mailboxes = get_all_connected_mailboxes(active_only=True)
+        all_ingested = []
+
+        for mb in mailboxes:
+            try:
+                ingested = self._poll_single_mailbox(mb)
+                if ingested:
+                    all_ingested.extend(ingested)
+                    update_mailbox_stats(mb["id"], count_increment=len(ingested))
+            except Exception as exc:
+                logger.error("Error polling mailbox %s: %s", mb.get("email_address"), exc)
+
+        self._stats["last_poll_utc"] = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+        return all_ingested
+
+    def _poll_single_mailbox(self, mb: dict, include_read: bool = False, limit: int = 50) -> List[Dict]:
+        """Connect to single mailbox and extract new or historical emails."""
+        from compliance import calculate_evidence_hash
+        from db import check_email_exists_by_hash, get_email_details
+
+        host = mb["host"]
+        port = int(mb["port"])
+        username = mb["username"].strip()
+        password = mb["password"].replace(" ", "").strip() if ("gmail" in host or "google" in host) else mb["password"].strip()
+        folder = mb.get("folder", "INBOX")
+        use_ssl = bool(mb.get("use_ssl", 1))
+
+        if use_ssl:
+            client = imaplib.IMAP4_SSL(host, port, timeout=15)
+        else:
+            client = imaplib.IMAP4(host, port, timeout=15)
+
+        client.login(username, password)
+        client.select(folder)
+
+        # If include_read is True, search ALL messages; otherwise search UNSEEN only
+        search_filter = "ALL" if include_read else "UNSEEN"
+        status, messages = client.search(None, search_filter)
+        if status != "OK" or not messages or not messages[0]:
+            client.close()
+            client.logout()
+            return []
+
+        ingested_records = []
+        email_ids = messages[0].split()
+
+        # Slice to the most recent 'limit' emails
+        if limit and len(email_ids) > limit:
+            email_ids = email_ids[-limit:]
+
+        for e_id in reversed(email_ids):
+            try:
+                status, msg_data = client.fetch(e_id, "(RFC822)")
+                if status != "OK" or not msg_data or not msg_data[0]:
+                    continue
+
+                raw_email = msg_data[0][1]
+                msg = email.message_from_bytes(raw_email)
+
+                sender = str(msg.get("From", "unknown@domain.com"))
+                subject = str(msg.get("Subject", "No Subject"))
+
+                # Extract raw RFC 822 headers
+                headers_list = [f"{k}: {v}" for k, v in msg.items()]
+                raw_headers = "\n".join(headers_list)
+
+                # Extract plaintext body
+                body_text = ""
+                if msg.is_multipart():
+                    for part in msg.walk():
+                        content_type = part.get_content_type()
+                        if content_type == "text/plain":
+                            body_text += part.get_payload(decode=True).decode("utf-8", errors="ignore") + "\n"
+                        elif content_type == "text/html" and not body_text:
+                            body_text += part.get_payload(decode=True).decode("utf-8", errors="ignore") + "\n"
+                else:
+                    body_text = msg.get_payload(decode=True).decode("utf-8", errors="ignore")
+
+                # Evidence hash check for deduplication
+                clean_body = body_text.strip() or "(No readable text body)"
+                evidence_hash = calculate_evidence_hash(sender, subject, raw_headers, clean_body)
+                existing_id = check_email_exists_by_hash(evidence_hash)
+                if existing_id:
+                    # Already analyzed previously
+                    continue
+
+                # Trigger ByteTrail 4-vector intelligence pipeline
+                record = self._pipeline_runner(
+                    sender=sender,
+                    subject=subject,
+                    raw_headers=raw_headers,
+                    body_text=clean_body,
+                )
+                ingested_records.append(record)
+                self._stats["total_ingested"] += 1
+
+                # Mark as seen if it was unread
+                if not include_read:
+                    client.store(e_id, "+FLAGS", "\\Seen")
+            except Exception as e:
+                logger.error("Error processing email msg in %s: %s", username, e)
+
+        client.close()
+        client.logout()
+        return ingested_records
+
+
+# Global singleton instance
+mailbox_manager = MultiMailboxManager()

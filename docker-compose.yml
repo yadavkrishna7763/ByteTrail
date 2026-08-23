@@ -1,0 +1,57 @@
+services:
+  # 1. MySQL Database Service
+  db:
+    image: mysql:8.0
+    container_name: bytetrail_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: bytetrail_db
+    ports:
+      - "3306:3306"
+    volumes:
+      - bytetrail_mysql_data:/var/lib/mysql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # 2. FastAPI Threat Intelligence Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: bytetrail_backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: rootpassword
+      DB_NAME: bytetrail_db
+      ENABLE_SQLITE_FALLBACK: "False"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./reports:/app/reports
+
+  # 3. Web SOC Dashboard (Nginx)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: bytetrail_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+
+volumes:
+  bytetrail_mysql_data:
+    driver: local
