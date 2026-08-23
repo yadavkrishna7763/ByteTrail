@@ -648,9 +648,9 @@ async function handleGoogleOAuthLogin(e) {
     }
 }
 
-// Trigger Deep Historical Scan for Mailbox (Read + Unread in Progressive 10-Email Batches)
+// Trigger Deep Historical Scan for Mailbox (Read + Unread in Max Speed Batches)
 window.deepScanConnectedMailbox = async function(id) {
-    showToast("🚀 Initiating progressive deep scan (10 emails per batch)...", "info");
+    showToast("🚀 Initiating high-speed deep scan (up to 500 emails per batch)...", "info");
     
     let offset = 0;
     let pageToken = null;
@@ -661,9 +661,9 @@ window.deepScanConnectedMailbox = async function(id) {
 
     try {
         while (hasMore) {
-            showToast(`🔍 Scanning Batch #${batchIndex} (Emails ${offset + 1}–${offset + 10})...`, "info");
+            showToast(`🔍 High-Speed Scanning Batch #${batchIndex} (Emails ${offset + 1}–${offset + 500})...`, "info");
             
-            let url = `${API_BASE}/api/v1/mailboxes/${id}/deep-scan?batch_size=10&offset=${offset}`;
+            let url = `${API_BASE}/api/v1/mailboxes/${id}/deep-scan?batch_size=500&offset=${offset}`;
             if (pageToken) {
                 url += `&page_token=${encodeURIComponent(pageToken)}`;
             }
@@ -681,10 +681,10 @@ window.deepScanConnectedMailbox = async function(id) {
             totalIngested += batchIngested;
             totalScanned += scannedInBatch;
             hasMore = Boolean(data.has_more);
-            offset = data.next_offset !== undefined ? data.next_offset : (offset + 10);
+            offset = data.next_offset !== undefined ? data.next_offset : (offset + 500);
             pageToken = data.next_page_token || null;
 
-            // Instantly refresh cases and radar map as each 10-email batch completes
+            // Instantly refresh cases and radar map as each batch completes
             if (batchIngested > 0) {
                 await loadEmails(true);
                 await loadConnectedMailboxes();
@@ -695,8 +695,7 @@ window.deepScanConnectedMailbox = async function(id) {
             }
 
             batchIndex++;
-            // Small pause between batches to ensure smooth UI and avoid network throttling
-            await new Promise(r => setTimeout(r, 400));
+            await new Promise(r => setTimeout(r, 300));
         }
 
         if (totalIngested > 0) {

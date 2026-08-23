@@ -350,12 +350,12 @@ def sync_mailbox(mailbox_id: int):
 )
 def deep_scan_mailbox(
     mailbox_id: int,
-    batch_size: int = 10,
+    batch_size: int = 500,
     offset: int = 0,
     page_token: Optional[str] = None
 ):
     """
-    Progressive deep scan of historical emails in batches of 10 (both read and unread).
+    Max throughput deep scan of historical emails in batches of up to 500 (both read and unread).
     Iterate with offset/page_token until has_more is False to scan the entire mailbox.
     """
     mailboxes = get_all_connected_mailboxes()
@@ -367,7 +367,7 @@ def deep_scan_mailbox(
         res = mailbox_manager._poll_single_mailbox(
             match,
             include_read=True,
-            limit=batch_size or 10,
+            limit=batch_size or 500,
             offset=offset or 0,
             page_token=page_token
         )

@@ -113,11 +113,11 @@ def fetch_user_email(access_token: str) -> str:
 
 def fetch_gmail_raw_messages(
     access_token: str,
-    max_results: int = 10,
+    max_results: int = 500,
     page_token: Optional[str] = None
 ) -> Tuple[List[bytes], Optional[str]]:
     """
-    Fetch raw RFC 822 email bytes from Gmail REST API for the authenticated user with pagination.
+    Fetch raw RFC 822 email bytes from Gmail REST API (up to 500 per batch for maximum speed).
     Returns (raw_emails_list, next_page_token).
     """
     if access_token.startswith("mock_google_access_token_"):
@@ -135,11 +135,11 @@ def fetch_gmail_raw_messages(
     raw_emails = []
     next_page_token = None
 
-    url = f"{GMAIL_MESSAGES_ENDPOINT}?maxResults={max_results}"
+    url = f"{GMAIL_MESSAGES_ENDPOINT}?maxResults={min(max_results, 500)}"
     if page_token:
         url += f"&pageToken={urllib.parse.quote(page_token)}"
 
-    with httpx.Client(timeout=20.0) as client:
+    with httpx.Client(timeout=60.0) as client:
         list_resp = client.get(url, headers=headers)
         if list_resp.status_code != 200:
             logger.warning("Gmail API messages list returned %d (gmail.readonly scope omitted on GCP consent screen). Generating initial threat test cases.", list_resp.status_code)

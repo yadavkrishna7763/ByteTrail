@@ -122,11 +122,11 @@ class MultiMailboxManager:
         self,
         mb: dict,
         include_read: bool = False,
-        limit: int = 10,
+        limit: int = 500,
         offset: int = 0,
         page_token: Optional[str] = None
     ) -> Dict:
-        """Connect to single mailbox and extract new or historical emails in progressive batches."""
+        """Connect to single mailbox and extract new or historical emails in max throughput batches."""
         from compliance import calculate_evidence_hash
         from db import check_email_exists_by_hash, get_email_details
 
@@ -146,7 +146,7 @@ class MultiMailboxManager:
             try:
                 from google_oauth import fetch_gmail_raw_messages
                 from eml_parser import parse_eml_bytes
-                raw_emls, next_token = fetch_gmail_raw_messages(access_token, max_results=limit or 10, page_token=page_token)
+                raw_emls, next_token = fetch_gmail_raw_messages(access_token, max_results=limit or 500, page_token=page_token)
                 ingested_records = []
                 for eml_bytes in raw_emls:
                     try:
