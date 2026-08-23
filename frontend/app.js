@@ -529,7 +529,7 @@ async function handleConnectMailboxSubmit(e) {
     const host = document.getElementById("mb-host")?.value.trim() || null;
     const port = parseInt(document.getElementById("mb-port")?.value || "993");
     const skipVerify = document.getElementById("mb-skip-verify")?.checked || false;
-    const scanHistory = document.getElementById("mb-scan-history")?.checked || false;
+    const scanHistory = document.getElementById("mb-scan-history")?.checked ?? true;
     const errBox = document.getElementById("connect-mb-error");
 
     if (errBox) {
