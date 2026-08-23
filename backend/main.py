@@ -391,6 +391,17 @@ def disconnect_mailbox(mailbox_id: int):
 # Google OAuth 2.0 & Gmail REST API Ingestion Endpoints
 # ==============================================================================
 
+def resolve_redirect_uri(request: Request, override_uri: Optional[str] = None) -> str:
+    if override_uri:
+        return override_uri
+    env_redirect = os.getenv("GOOGLE_REDIRECT_URI", "").strip()
+    if env_redirect:
+        return env_redirect
+    host_header = request.headers.get("host", "127.0.0.1:8000")
+    scheme = "https" if ("https" in str(request.url.scheme) or "onrender.com" in host_header or "vercel.app" in host_header) else "http"
+    return f"{scheme}://{host_header}/api/v1/auth/google/callback"
+
+
 @app.get(
     "/api/v1/auth/google/url",
     tags=["Google OAuth 2.0"],
@@ -399,20 +410,12 @@ def get_google_oauth_url(request: Request, redirect_uri: Optional[str] = None):
     """
     Generate the official Google OAuth 2.0 Authorization URL for 1-click login.
     """
-    if not redirect_uri:
-        custom_redirect = os.getenv("GOOGLE_REDIRECT_URI", "").strip()
-        if custom_redirect:
-            redirect_uri = custom_redirect
-        else:
-            host_header = request.headers.get("host", "127.0.0.1:8000")
-            scheme = "https" if "https" in str(request.url.scheme) else "http"
-            redirect_uri = f"{scheme}://{host_header}/api/v1/auth/google/callback"
-
-    auth_url = get_google_auth_url(redirect_uri)
+    final_redirect = resolve_redirect_uri(request, redirect_uri)
+    auth_url = get_google_auth_url(final_redirect)
     return {
         "url": auth_url,
         "is_configured": is_google_oauth_configured(),
-        "redirect_uri": redirect_uri,
+        "redirect_uri": final_redirect,
     }
 
 
@@ -427,13 +430,7 @@ def google_oauth_callback(code: str, request: Request, state: Optional[str] = No
     """
     from fastapi.responses import HTMLResponse
 
-    custom_redirect = os.getenv("GOOGLE_REDIRECT_URI", "").strip()
-    if custom_redirect:
-        redirect_uri = custom_redirect
-    else:
-        host_header = request.headers.get("host", "127.0.0.1:8000")
-        scheme = "https" if "https" in str(request.url.scheme) else "http"
-        redirect_uri = f"{scheme}://{host_header}/api/v1/auth/google/callback"
+    redirect_uri = resolve_redirect_uri(request)
 
     try:
         tokens = exchange_code_for_tokens(code, redirect_uri)
