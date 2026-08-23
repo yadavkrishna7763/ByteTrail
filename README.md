@@ -34,46 +34,73 @@ ByteTrail addresses the complete 3-layered email threat lifecycle:
 
 ## 🚀 Quick Start with Docker (Recommended for Teammates)
 
-No need to install Python or MySQL manually. Run the entire stack with a single command:
+Teammates can clone and boot the entire stack (Database + Backend + Frontend) in one command without installing Python or MySQL manually.
 
+### 1. Prerequisites
+- Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Mac, Windows, or Linux) and ensure it is running.
+- Install [Git](https://git-scm.com/).
+
+### 2. Clone and Setup Environment
 ```bash
-docker compose up --build
+git clone https://github.com/yadavkrishna7763/ByteTrail.git
+cd ByteTrail
+
+# Copy the sample environment file
+cp backend/.env.example backend/.env
 ```
 
-- **Web SOC Dashboard**: 👉 [http://localhost:3000](http://localhost:3000)
-- **FastAPI Backend & Interactive Swagger Docs**: 👉 [http://localhost:8000/docs](http://localhost:8000/docs)
-- **MySQL Database**: Running on port `3306` (`root` / `rootpassword`).
+*(Optional: Add your Google Cloud OAuth credentials to `backend/.env` if testing real Google Login, or use standard IMAP/App Passwords).*
+
+### 3. Build and Launch Containers
+```bash
+docker compose build --no-cache
+docker compose up -d
+```
+
+### 4. Access the Application
+- 🖥️ **Web SOC Dashboard**: 👉 [http://localhost:3000](http://localhost:3000)
+- ⚙️ **Interactive API Docs (Swagger UI)**: 👉 [http://localhost:8000/docs](http://localhost:8000/docs)
+- 🗄️ **MySQL Database**: `localhost:3306` (`root` / `password` / `bytetrail_db`)
+
+### 5. Useful Docker Commands
+```bash
+# View live backend & frontend logs
+docker compose logs -f
+
+# Check container status
+docker compose ps
+
+# Stop all containers
+docker compose down
+
+# Restart containers
+docker compose restart
+```
 
 ---
 
-## 💻 Manual Setup (Without Docker)
+## 💻 Local Setup (Without Docker)
 
-### 1. Database Configuration
-Create the MySQL database `bytetrail_db` and configure `backend/.env`:
-```env
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_USER=root
-DB_PASSWORD=your_mysql_password
-DB_NAME=bytetrail_db
-```
+If you prefer running without Docker:
 
-### 2. Backend Setup
+### 1. Backend Setup
 ```bash
 cd backend
 python3 -m venv venv
-source venv/bin/activate
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
-python seed_data.py
-uvicorn main:app --reload --host 127.0.0.1 --port 8000
+
+# Start FastAPI server (auto-uses local MySQL or built-in SQLite)
+uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-### 3. Frontend Dashboard
+### 2. Frontend Setup
+Open a new terminal window:
 ```bash
 cd frontend
 python3 -m http.server 3000
 ```
-Open **[http://127.0.0.1:3000](http://127.0.0.1:3000)**.
+Open **[http://localhost:3000](http://localhost:3000)** in your browser.
 
 ---
 
@@ -81,6 +108,6 @@ Open **[http://127.0.0.1:3000](http://127.0.0.1:3000)**.
 
 ```bash
 cd backend
-venv/bin/pytest -v test_api.py
+./venv/bin/pytest -v
 ```
-*(All 5 unit and integration tests passing)*
+*(All 8 API and pipeline unit tests verified)*
