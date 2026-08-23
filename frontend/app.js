@@ -650,15 +650,15 @@ async function handleGoogleOAuthLogin(e) {
 
 // Trigger Deep Historical Scan for Mailbox (Read + Unread)
 window.deepScanConnectedMailbox = async function(id) {
-    showToast("🔍 Performing deep scan of historical inbox emails (read + unread)...", "info");
+    showToast("🔍 Performing deep scan of all historical inbox emails (both read and unread)...", "info");
     try {
-        const res = await fetch(`${API_BASE}/api/v1/mailboxes/${id}/deep-scan?limit=50`, { method: "POST" });
+        const res = await fetch(`${API_BASE}/api/v1/mailboxes/${id}/deep-scan?limit=100`, { method: "POST" });
         const data = await res.json();
         if (data.historical_emails_analyzed > 0) {
-            showToast(`✅ Analyzed ${data.historical_emails_analyzed} historical emails! Threats plotted on Radar Map.`, "success");
+            showToast(`✅ Deep scan complete! Analyzed ${data.historical_emails_analyzed} historical emails.`, "success");
             await loadEmails(true);
         } else {
-            showToast("No new or unanalyzed emails found in inbox history.", "info");
+            showToast("Inbox scan complete. All existing messages are already analyzed.", "info");
         }
         await loadConnectedMailboxes();
     } catch (e) {
