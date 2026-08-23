@@ -3,6 +3,6 @@
  * 
  * Instructions for Vercel:
  * Set your deployed Render backend URL below:
- * e.g. window.BYTETRAIL_BACKEND_URL = "https://bytetrail-backend.onrender.com";
+ * e.g. window.BYTETRAIL_BACKEND_URL = "https://bytetrail.onrender.com";
  */
-window.BYTETRAIL_BACKEND_URL = "https://bytetrail-backend.onrender.com";
+window.BYTETRAIL_BACKEND_URL = "https://bytetrail.onrender.com";

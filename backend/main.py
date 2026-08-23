@@ -463,6 +463,7 @@ def google_oauth_callback(code: str, request: Request, state: Optional[str] = No
             update_mailbox_stats(mb_id, count_increment=ingested_count)
 
         # Return auto-closing redirect script to communicate with parent window
+        frontend_url = os.getenv("FRONTEND_URL", "https://byte-trail.vercel.app").rstrip("/")
         html = f"""
         <!DOCTYPE html>
         <html>
@@ -477,7 +478,7 @@ def google_oauth_callback(code: str, request: Request, state: Optional[str] = No
                         window.opener.postMessage({{ type: 'GOOGLE_AUTH_SUCCESS', email: '{user_email}', ingested: {ingested_count} }}, '*');
                         setTimeout(() => window.close(), 1200);
                     }} else {{
-                        window.location.href = 'http://localhost:3000?google_auth=success';
+                        window.location.href = '{frontend_url}?google_auth=success';
                     }}
                 </script>
             </div>
