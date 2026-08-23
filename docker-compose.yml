@@ -28,6 +28,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    env_file:
+      - ./backend/.env
     environment:
       DB_HOST: db
       DB_PORT: 3306
@@ -35,6 +37,9 @@ services:
       DB_PASSWORD: rootpassword
       DB_NAME: bytetrail_db
       ENABLE_SQLITE_FALLBACK: "False"
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-}
     ports:
       - "8000:8000"
     volumes:

@@ -400,9 +400,13 @@ def get_google_oauth_url(request: Request, redirect_uri: Optional[str] = None):
     Generate the official Google OAuth 2.0 Authorization URL for 1-click login.
     """
     if not redirect_uri:
-        host_header = request.headers.get("host", "127.0.0.1:8000")
-        scheme = "https" if "https" in str(request.url.scheme) else "http"
-        redirect_uri = f"{scheme}://{host_header}/api/v1/auth/google/callback"
+        custom_redirect = os.getenv("GOOGLE_REDIRECT_URI", "").strip()
+        if custom_redirect:
+            redirect_uri = custom_redirect
+        else:
+            host_header = request.headers.get("host", "127.0.0.1:8000")
+            scheme = "https" if "https" in str(request.url.scheme) else "http"
+            redirect_uri = f"{scheme}://{host_header}/api/v1/auth/google/callback"
 
     auth_url = get_google_auth_url(redirect_uri)
     return {
@@ -423,9 +427,13 @@ def google_oauth_callback(code: str, request: Request, state: Optional[str] = No
     """
     from fastapi.responses import HTMLResponse
 
-    host_header = request.headers.get("host", "127.0.0.1:8000")
-    scheme = "https" if "https" in str(request.url.scheme) else "http"
-    redirect_uri = f"{scheme}://{host_header}/api/v1/auth/google/callback"
+    custom_redirect = os.getenv("GOOGLE_REDIRECT_URI", "").strip()
+    if custom_redirect:
+        redirect_uri = custom_redirect
+    else:
+        host_header = request.headers.get("host", "127.0.0.1:8000")
+        scheme = "https" if "https" in str(request.url.scheme) else "http"
+        redirect_uri = f"{scheme}://{host_header}/api/v1/auth/google/callback"
 
     try:
         tokens = exchange_code_for_tokens(code, redirect_uri)
@@ -494,11 +502,19 @@ def google_oauth_callback(code: str, request: Request, state: Optional[str] = No
     "/api/v1/auth/google/demo-connect",
     tags=["Google OAuth 2.0"],
 )
-def demo_google_connect(email: str = "analyst.google.account@gmail.com"):
+async def demo_google_connect(request: Request, email: Optional[str] = None):
     """
     1-Click Google OAuth Direct Simulation for instant presentations & live testing.
     """
-    mb_id = upsert_oauth_mailbox(email, provider="google", access_token="mock_google_access_token_demo")
+    if not email:
+        try:
+            body = await request.json()
+            email = body.get("email")
+        except Exception:
+            pass
+    chosen_email = email or "krishnayadav7763@gmail.com"
+
+    mb_id = upsert_oauth_mailbox(chosen_email, provider="google", access_token="mock_google_access_token_demo")
     raw_emls = fetch_gmail_raw_messages("mock_google_access_token_demo", max_results=5)
     ingested_count = 0
     for eml_bytes in raw_emls:
@@ -519,7 +535,7 @@ def demo_google_connect(email: str = "analyst.google.account@gmail.com"):
 
     return {
         "status": "success",
-        "email_address": email,
+        "email_address": chosen_email,
         "provider": "google_oauth2",
         "ingested_cases": ingested_count,
     }

@@ -3,7 +3,9 @@
  * Problem Statement ID: 26106 | Smart India Hackathon
  */
 
-const API_BASE = "http://127.0.0.1:8000";
+const API_BASE = (typeof window !== "undefined" && window.location && window.location.hostname)
+    ? `${window.location.protocol}//${window.location.hostname}:8000`
+    : "http://127.0.0.1:8000";
 
 // State
 let storedEmails = [];
@@ -204,7 +206,7 @@ function initEventListeners() {
         connectMbForm.addEventListener("submit", handleConnectMailboxSubmit);
     }
 
-    // Google OAuth 2.0 1-Click Login Button
+    // Google OAuth 2.0 Real Login Button
     const btnGoogleOAuth = document.getElementById("btn-google-oauth-login");
     if (btnGoogleOAuth) {
         btnGoogleOAuth.addEventListener("click", handleGoogleOAuthLogin);
@@ -583,41 +585,50 @@ async function handleConnectMailboxSubmit(e) {
     }
 }
 
-// 1-Click Google OAuth 2.0 Login Handler
-async function handleGoogleOAuthLogin() {
+// Real Google OAuth 2.0 Login Handler
+async function handleGoogleOAuthLogin(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    if (e && e.stopPropagation) e.stopPropagation();
+
     const btn = document.getElementById("btn-google-oauth-login");
     const spinner = document.getElementById("google-oauth-spinner");
     if (btn) btn.disabled = true;
     if (spinner) spinner.classList.remove("hidden");
 
+    // Open popup window synchronously on user click to prevent browser popup blockers
+    const width = 540;
+    const height = 640;
+    const left = window.screenX + (window.outerWidth - width) / 2;
+    const top = window.screenY + (window.outerHeight - height) / 2;
+    let popupWindow = null;
+    try {
+        popupWindow = window.open(
+            "about:blank",
+            "GoogleOAuthConsent",
+            `width=${width},height=${height},left=${left},top=${top},status=no,resizable=yes`
+        );
+    } catch (err) {
+        popupWindow = null;
+    }
+
     try {
         const res = await fetch(`${API_BASE}/api/v1/auth/google/url`);
         const data = await res.json();
 
-        if (data.is_configured && data.url) {
-            // Open official Google OAuth consent screen in popup
-            const width = 540;
-            const height = 640;
-            const left = window.screenX + (window.outerWidth - width) / 2;
-            const top = window.screenY + (window.outerHeight - height) / 2;
-            window.open(
-                data.url,
-                "GoogleOAuthConsent",
-                `width=${width},height=${height},left=${left},top=${top},status=no,resizable=yes`
-            );
+        if (data && data.url) {
+            if (popupWindow && !popupWindow.closed) {
+                popupWindow.location.href = data.url;
+            } else {
+                // Fallback direct redirection if browser popup was blocked
+                window.location.href = data.url;
+            }
         } else {
-            // 1-Click Instant Demo OAuth Mode (Simulates real Google token exchange and Gmail API pipeline)
-            showToast("🚀 Connecting Google Account via OAuth 2.0 (Gmail API)...", "info");
-            const demoRes = await fetch(`${API_BASE}/api/v1/auth/google/demo-connect`, { method: "POST" });
-            const demoData = await demoRes.json();
-            
-            showToast(`✅ Successfully connected Google OAuth: ${demoData.email_address}!`, "success");
-            document.getElementById("connect-mailbox-modal")?.classList.add("hidden");
-            await loadEmails(true);
-            await loadConnectedMailboxes();
+            if (popupWindow && !popupWindow.closed) popupWindow.close();
+            showToast("Failed to retrieve Google OAuth authorization URL.", "error");
         }
-    } catch (e) {
-        showToast(`Google OAuth error: ${e.message}`, "error");
+    } catch (err) {
+        if (popupWindow && !popupWindow.closed) popupWindow.close();
+        showToast(`Google OAuth error: ${err.message}`, "error");
     } finally {
         if (btn) btn.disabled = false;
         if (spinner) spinner.classList.add("hidden");

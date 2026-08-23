@@ -73,5 +73,7 @@ class MailboxResponse(BaseModel):
     folder: str
     is_active: bool
     total_ingested: int
+    auth_type: Optional[str] = "password"
+    access_token: Optional[str] = None
     created_at: Optional[str] = None
     last_polled: Optional[str] = None

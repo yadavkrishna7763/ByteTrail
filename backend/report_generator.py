@@ -25,6 +25,11 @@ def generate_forensic_report(email_data: Dict) -> str:
     Returns:
         Absolute filepath to the generated PDF report.
     """
+    if hasattr(email_data, "keys") and not isinstance(email_data, dict):
+        email_data = {k: email_data[k] for k in email_data.keys()}
+    elif not isinstance(email_data, dict):
+        email_data = {}
+
     email_id = email_data.get("id", 0)
     reports_dir = get_reports_dir()
     report_filename = f"forensic_report_email_{email_id}.pdf"

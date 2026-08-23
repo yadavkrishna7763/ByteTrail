@@ -73,6 +73,9 @@ CREATE TABLE IF NOT EXISTS connected_mailboxes (
     use_ssl BOOLEAN DEFAULT TRUE,
     is_active BOOLEAN DEFAULT TRUE,
     total_ingested INT DEFAULT 0,
+    auth_type VARCHAR(20) DEFAULT 'password',
+    access_token TEXT,
+    refresh_token TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_polled TIMESTAMP NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

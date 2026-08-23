@@ -253,6 +253,21 @@ def init_db(conn=None):
             );
         """)
 
+        sqlite_migrations = [
+            "ALTER TABLE emails ADD COLUMN sha256_hash TEXT;",
+            "ALTER TABLE geo_data ADD COLUMN isp_asn TEXT;",
+            "ALTER TABLE geo_data ADD COLUMN is_vpn_tor INTEGER DEFAULT 0;",
+            "ALTER TABLE risk_scores ADD COLUMN threat_actor TEXT DEFAULT 'Unattributed';",
+            "ALTER TABLE connected_mailboxes ADD COLUMN auth_type TEXT DEFAULT 'password';",
+            "ALTER TABLE connected_mailboxes ADD COLUMN access_token TEXT;",
+            "ALTER TABLE connected_mailboxes ADD COLUMN refresh_token TEXT;",
+        ]
+        for m in sqlite_migrations:
+            try:
+                cursor.execute(m)
+            except Exception:
+                pass
+
     cursor.close()
     conn.commit()
     if close_after:
@@ -274,7 +289,12 @@ def check_email_exists_by_hash(sha256_hash: str) -> Optional[int]:
     cursor.close()
     conn.close()
     if row:
-        return row[0] if isinstance(row, (list, tuple)) else row.get("id")
+        if hasattr(row, "keys"):
+            return row["id"]
+        elif isinstance(row, dict):
+            return row.get("id")
+        else:
+            return row[0]
     return None
 
 
@@ -393,9 +413,9 @@ def get_all_emails_enriched() -> list:
 
     results = []
     for row in rows:
-        if isinstance(row, dict):
-            rec = dict(row)
-        elif hasattr(row, "keys"):
+        if hasattr(row, "keys"):
+            rec = {k: row[k] for k in row.keys()}
+        elif isinstance(row, dict):
             rec = dict(row)
         else:
             rec = dict(zip(columns, row))
@@ -461,9 +481,9 @@ def get_email_details(email_id: int):
     cursor.close()
     conn.close()
 
-    if isinstance(row, dict):
-        rec = dict(row)
-    elif hasattr(row, "keys"):
+    if hasattr(row, "keys"):
+        rec = {k: row[k] for k in row.keys()}
+    elif isinstance(row, dict):
         rec = dict(row)
     else:
         rec = dict(zip(columns, row))
@@ -517,10 +537,10 @@ def get_forensic_report_log(email_id: int) -> str:
     if not row:
         return None
 
-    if isinstance(row, dict):
-        return row.get("report_path")
-    elif hasattr(row, "keys"):
+    if hasattr(row, "keys"):
         return row["report_path"]
+    elif isinstance(row, dict):
+        return row.get("report_path")
     else:
         return row[0]
 
@@ -571,16 +591,16 @@ def get_all_connected_mailboxes(active_only: bool = False) -> list:
     cursor = conn.cursor()
 
     clause = "WHERE is_active = 1" if active_only else ""
-    query = f"SELECT id, email_address, provider, host, port, username, password, folder, use_ssl, is_active, total_ingested, created_at, last_polled FROM connected_mailboxes {clause} ORDER BY id DESC"
+    query = f"SELECT id, email_address, provider, host, port, username, password, folder, use_ssl, is_active, total_ingested, created_at, last_polled, auth_type, access_token, refresh_token FROM connected_mailboxes {clause} ORDER BY id DESC"
     cursor.execute(query)
     columns = [desc[0] for desc in cursor.description]
     rows = cursor.fetchall()
 
     results = []
     for row in rows:
-        if isinstance(row, dict):
-            rec = dict(row)
-        elif hasattr(row, "keys"):
+        if hasattr(row, "keys"):
+            rec = {k: row[k] for k in row.keys()}
+        elif isinstance(row, dict):
             rec = dict(row)
         else:
             rec = dict(zip(columns, row))

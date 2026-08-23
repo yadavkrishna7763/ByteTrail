@@ -122,12 +122,47 @@ class MultiMailboxManager:
         from compliance import calculate_evidence_hash
         from db import check_email_exists_by_hash, get_email_details
 
-        host = mb["host"]
-        port = int(mb["port"])
-        username = mb["username"].strip()
-        password = mb["password"].replace(" ", "").strip() if ("gmail" in host or "google" in host) else mb["password"].strip()
+        host = mb.get("host", "")
+        port = int(mb.get("port", 993))
+        username = mb.get("username", "").strip()
+        password = mb.get("password", "").replace(" ", "").strip() if ("gmail" in host or "google" in host) else mb.get("password", "").strip()
         folder = mb.get("folder", "INBOX")
         use_ssl = bool(mb.get("use_ssl", 1))
+
+        # If account authenticated via OAuth 2.0 (e.g. Google Gmail API)
+        auth_type = mb.get("auth_type", "password")
+        access_token = mb.get("access_token", "")
+        if auth_type == "oauth" or (access_token and "gmail" in host.lower()):
+            if not access_token:
+                return []
+            try:
+                from google_oauth import fetch_gmail_raw_messages
+                from eml_parser import parse_eml_bytes
+                raw_emls = fetch_gmail_raw_messages(access_token, max_results=limit or 25)
+                ingested_records = []
+                for eml_bytes in raw_emls:
+                    try:
+                        parsed = parse_eml_bytes(eml_bytes)
+                        evidence_hash = calculate_evidence_hash(
+                            parsed["sender"], parsed["subject"], parsed["raw_headers"], parsed["body_text"]
+                        )
+                        existing_id = check_email_exists_by_hash(evidence_hash)
+                        if existing_id:
+                            continue
+                        record = self._pipeline_runner(
+                            sender=parsed["sender"],
+                            subject=parsed["subject"],
+                            raw_headers=parsed["raw_headers"],
+                            body_text=parsed["body_text"],
+                        )
+                        ingested_records.append(record)
+                        self._stats["total_ingested"] += 1
+                    except Exception as e:
+                        logger.error("Error processing OAuth email part: %s", e)
+                return ingested_records
+            except Exception as exc:
+                logger.error("OAuth poll error for %s: %s", username, exc)
+                return []
 
         if use_ssl:
             client = imaplib.IMAP4_SSL(host, port, timeout=15)
