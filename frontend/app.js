@@ -834,7 +834,8 @@ async function loadConnectedMailboxes() {
         }
 
         grid.innerHTML = connectedMailboxes.map(mb => {
-            const providerIcon = mb.provider === "gmail" ? "fa-google" : mb.provider === "outlook" ? "fa-microsoft" : mb.provider === "yahoo" ? "fa-yahoo" : "fa-envelope";
+            const providerIcon = (mb.provider === "gmail" || mb.provider === "google") ? "fa-google" : mb.provider === "outlook" ? "fa-microsoft" : mb.provider === "yahoo" ? "fa-yahoo" : "fa-envelope";
+            const isGmail = mb.provider === "gmail" || mb.provider === "google";
             
             return `
                 <div class="card" style="padding: 1.25rem; background: var(--bg-surface);">
@@ -863,6 +864,13 @@ async function loadConnectedMailboxes() {
                     </div>
 
                     <div style="display: flex; gap: 0.4rem; justify-content: flex-end; flex-wrap: wrap;">
+                        <button class="btn btn-sm btn-cyber-secondary" onclick="viewMailboxThreats()" title="Show high-risk emails detected for your account">
+                            <i class="fa-solid fa-triangle-exclamation"></i> View Threats
+                        </button>
+                        ${isGmail ? `
+                        <button class="btn btn-sm btn-cyber-secondary" onclick="openGmailInbox()" title="Open this Gmail inbox in Google Mail">
+                            <i class="fa-brands fa-google"></i> Open Gmail
+                        </button>` : ""}
                         <button class="btn btn-sm btn-cyber-primary" onclick="deepScanConnectedMailbox(${mb.id})" title="Deep Scan All Historical Read and Unread Emails">
                             <i class="fa-solid fa-magnifying-glass"></i> Deep Scan (Read + Unread)
                         </button>
@@ -880,6 +888,24 @@ async function loadConnectedMailboxes() {
         console.error("Error loading mailboxes:", e);
     }
 }
+
+// Open the connected Google inbox. The user stays signed in to Gmail in their browser.
+window.openGmailInbox = function() {
+    window.open("https://mail.google.com/mail/u/0/#inbox", "_blank", "noopener,noreferrer");
+};
+
+// Show the user's high-risk cases captured from their connected mailbox.
+window.viewMailboxThreats = async function() {
+    await loadEmails(false);
+    const feedTab = document.querySelector('.nav-tab[data-tab="feed"]');
+    if (feedTab) feedTab.click();
+    activeFilter = "high";
+    document.querySelectorAll(".filter-chip").forEach(chip => {
+        chip.classList.toggle("active", chip.dataset.filter === "high");
+    });
+    applyFeedFilters();
+    showToast("Showing high-risk email threats detected for your account.", "info");
+};
 
 // Handle Connect Mailbox Form Submission
 async function handleConnectMailboxSubmit(e) {

@@ -94,6 +94,29 @@ def exchange_code_for_tokens(code: str, redirect_uri: str) -> Dict:
         return resp.json()
 
 
+def refresh_google_access_token(refresh_token: str) -> Dict:
+    """Get a new Gmail API access token for an already-connected mailbox."""
+    if not refresh_token:
+        raise ValueError("No Google refresh token is available. Reconnect the Gmail inbox.")
+    if refresh_token.startswith("mock_google_refresh_token"):
+        return {"access_token": "mock_google_access_token_refreshed", "expires_in": 3600}
+    if not is_google_oauth_configured():
+        raise ValueError("Google OAuth is not configured on the server.")
+
+    data = {
+        "client_id": get_google_client_id(),
+        "client_secret": get_google_client_secret(),
+        "refresh_token": refresh_token,
+        "grant_type": "refresh_token",
+    }
+    with httpx.Client(timeout=15.0) as client:
+        response = client.post(GOOGLE_TOKEN_ENDPOINT, data=data)
+    if response.status_code != 200:
+        logger.warning("Google token refresh failed: %s", response.text)
+        raise ValueError("Google access expired. Reconnect the Gmail inbox to continue live scanning.")
+    return response.json()
+
+
 def fetch_user_email(access_token: str) -> str:
     """
     Fetch authenticated user's email address from Google UserInfo API.

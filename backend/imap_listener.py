@@ -144,9 +144,22 @@ class MultiMailboxManager:
             if not access_token:
                 return {"records": [], "has_more": False, "next_offset": offset, "next_page_token": None, "total_scanned_in_batch": 0}
             try:
-                from google_oauth import fetch_gmail_raw_messages
+                from google_oauth import fetch_gmail_raw_messages, refresh_google_access_token
                 from eml_parser import parse_eml_bytes
-                raw_emls, next_token = fetch_gmail_raw_messages(access_token, max_results=limit or 500, page_token=page_token)
+                try:
+                    raw_emls, next_token = fetch_gmail_raw_messages(
+                        access_token, max_results=limit or 500, page_token=page_token
+                    )
+                except ValueError:
+                    # Google access tokens are short-lived. Retry once with the
+                    # stored refresh token so background live polling keeps working.
+                    refreshed = refresh_google_access_token(mb.get("refresh_token", ""))
+                    access_token = refreshed["access_token"]
+                    from db import update_mailbox_tokens
+                    update_mailbox_tokens(mb["id"], access_token, refreshed.get("refresh_token"))
+                    raw_emls, next_token = fetch_gmail_raw_messages(
+                        access_token, max_results=limit or 500, page_token=page_token
+                    )
                 ingested_records = []
                 for eml_bytes in raw_emls:
                     try:
