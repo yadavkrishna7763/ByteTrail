@@ -103,6 +103,7 @@ def init_db(conn=None):
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS emails (
                 id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NULL,
                 sender VARCHAR(255) NOT NULL,
                 subject VARCHAR(255) NOT NULL,
                 raw_headers TEXT,
@@ -164,6 +165,7 @@ def init_db(conn=None):
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS connected_mailboxes (
                 id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NULL,
                 email_address VARCHAR(255) NOT NULL,
                 provider VARCHAR(50) DEFAULT 'custom',
                 host VARCHAR(255) NOT NULL,
@@ -195,12 +197,14 @@ def init_db(conn=None):
         # Run non-destructive column additions if upgrading existing database
         migrations = [
             "ALTER TABLE emails ADD COLUMN sha256_hash VARCHAR(64);",
+            "ALTER TABLE emails ADD COLUMN user_id INT;",
             "ALTER TABLE geo_data ADD COLUMN isp_asn VARCHAR(255);",
             "ALTER TABLE geo_data ADD COLUMN is_vpn_tor BOOLEAN DEFAULT FALSE;",
             "ALTER TABLE risk_scores ADD COLUMN threat_actor VARCHAR(255) DEFAULT 'Unattributed';",
             "ALTER TABLE connected_mailboxes ADD COLUMN auth_type VARCHAR(20) DEFAULT 'password';",
             "ALTER TABLE connected_mailboxes ADD COLUMN access_token TEXT;",
             "ALTER TABLE connected_mailboxes ADD COLUMN refresh_token TEXT;",
+            "ALTER TABLE connected_mailboxes ADD COLUMN user_id INT;",
         ]
         for m in migrations:
             try:
@@ -213,6 +217,7 @@ def init_db(conn=None):
         cursor.executescript("""
             CREATE TABLE IF NOT EXISTS emails (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NULL,
                 sender TEXT NOT NULL,
                 subject TEXT NOT NULL,
                 raw_headers TEXT,
@@ -264,6 +269,7 @@ def init_db(conn=None):
 
             CREATE TABLE IF NOT EXISTS connected_mailboxes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NULL,
                 email_address TEXT NOT NULL,
                 provider TEXT DEFAULT 'custom',
                 host TEXT NOT NULL,
@@ -274,8 +280,11 @@ def init_db(conn=None):
                 use_ssl INTEGER DEFAULT 1,
                 is_active INTEGER DEFAULT 1,
                 total_ingested INTEGER DEFAULT 0,
+                auth_type TEXT DEFAULT 'password',
+                access_token TEXT,
+                refresh_token TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                last_polled TIMESTAMP NULL
+                last_polled TIMESTAMP NULL DEFAULT NULL
             );
 
             CREATE TABLE IF NOT EXISTS users (
@@ -286,18 +295,20 @@ def init_db(conn=None):
                 role TEXT DEFAULT 'analyst',
                 is_active INTEGER DEFAULT 1,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                last_login TIMESTAMP NULL
+                last_login TIMESTAMP NULL DEFAULT NULL
             );
         """)
 
         sqlite_migrations = [
             "ALTER TABLE emails ADD COLUMN sha256_hash TEXT;",
+            "ALTER TABLE emails ADD COLUMN user_id INTEGER;",
             "ALTER TABLE geo_data ADD COLUMN isp_asn TEXT;",
             "ALTER TABLE geo_data ADD COLUMN is_vpn_tor INTEGER DEFAULT 0;",
             "ALTER TABLE risk_scores ADD COLUMN threat_actor TEXT DEFAULT 'Unattributed';",
             "ALTER TABLE connected_mailboxes ADD COLUMN auth_type TEXT DEFAULT 'password';",
             "ALTER TABLE connected_mailboxes ADD COLUMN access_token TEXT;",
             "ALTER TABLE connected_mailboxes ADD COLUMN refresh_token TEXT;",
+            "ALTER TABLE connected_mailboxes ADD COLUMN user_id INTEGER;",
         ]
         for m in sqlite_migrations:
             try:
@@ -335,18 +346,18 @@ def check_email_exists_by_hash(sha256_hash: str) -> Optional[int]:
     return None
 
 
-def insert_email(sender: str, subject: str, raw_headers: str = None, body_text: str = None, sha256_hash: str = None) -> int:
+def insert_email(sender: str, subject: str, raw_headers: str = None, body_text: str = None, sha256_hash: str = None, user_id: Optional[int] = None) -> int:
     """Insert a new email record and return its generated ID."""
     conn = get_connection()
     cursor = conn.cursor()
 
     if ACTIVE_ENGINE == "mysql":
-        query = "INSERT INTO emails (sender, subject, raw_headers, body_text, sha256_hash) VALUES (%s, %s, %s, %s, %s)"
-        cursor.execute(query, (sender, subject, raw_headers, body_text, sha256_hash))
+        query = "INSERT INTO emails (sender, subject, raw_headers, body_text, sha256_hash, user_id) VALUES (%s, %s, %s, %s, %s, %s)"
+        cursor.execute(query, (sender, subject, raw_headers, body_text, sha256_hash, user_id))
         email_id = cursor.lastrowid
     else:
-        query = "INSERT INTO emails (sender, subject, raw_headers, body_text, sha256_hash) VALUES (?, ?, ?, ?, ?)"
-        cursor.execute(query, (sender, subject, raw_headers, body_text, sha256_hash))
+        query = "INSERT INTO emails (sender, subject, raw_headers, body_text, sha256_hash, user_id) VALUES (?, ?, ?, ?, ?, ?)"
+        cursor.execute(query, (sender, subject, raw_headers, body_text, sha256_hash, user_id))
         email_id = cursor.lastrowid
 
     cursor.close()
@@ -427,12 +438,23 @@ def save_analysis_results(
     conn.close()
 
 
-def get_all_emails_enriched() -> list:
-    """Retrieve all emails with their associated intelligence analysis data."""
+def get_all_emails_enriched(user_id: Optional[int] = None, is_admin: bool = False) -> list:
+    """Retrieve all emails with their associated intelligence analysis data (scoped to user if not admin)."""
     conn = get_connection()
     cursor = conn.cursor()
 
-    query = """
+    where_clause = ""
+    params = ()
+
+    if not is_admin and user_id is not None:
+        if ACTIVE_ENGINE == "mysql":
+            where_clause = "WHERE e.user_id = %s OR e.user_id IS NULL"
+            params = (user_id,)
+        else:
+            where_clause = "WHERE e.user_id = ? OR e.user_id IS NULL"
+            params = (user_id,)
+
+    query = f"""
         SELECT 
             e.id, e.sender, e.subject, e.raw_headers, e.body_text, e.sha256_hash, e.received_at,
             a.fraud_score, a.header_valid, a.spf_result, a.dkim_result, a.dmarc_result,
@@ -442,9 +464,10 @@ def get_all_emails_enriched() -> list:
         LEFT JOIN analysis_results a ON e.id = a.email_id
         LEFT JOIN geo_data g ON e.id = g.email_id
         LEFT JOIN risk_scores r ON e.id = r.email_id
+        {where_clause}
         ORDER BY e.id DESC
     """
-    cursor.execute(query)
+    cursor.execute(query, params)
     columns = [desc[0] for desc in cursor.description]
     rows = cursor.fetchall()
 
@@ -596,6 +619,7 @@ def add_connected_mailbox(
     folder: str = "INBOX",
     use_ssl: bool = True,
     is_active: bool = True,
+    user_id: Optional[int] = None,
 ) -> int:
     """Register a new live email account for continuous automated polling."""
     conn = get_connection()
@@ -603,17 +627,17 @@ def add_connected_mailbox(
 
     if ACTIVE_ENGINE == "mysql":
         query = """
-            INSERT INTO connected_mailboxes (email_address, provider, host, port, username, password, folder, use_ssl, is_active)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO connected_mailboxes (email_address, provider, host, port, username, password, folder, use_ssl, is_active, user_id)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
-        cursor.execute(query, (email_address, provider, host, port, username, password, folder, use_ssl, is_active))
+        cursor.execute(query, (email_address, provider, host, port, username, password, folder, use_ssl, is_active, user_id))
         mb_id = cursor.lastrowid
     else:
         query = """
-            INSERT INTO connected_mailboxes (email_address, provider, host, port, username, password, folder, use_ssl, is_active)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO connected_mailboxes (email_address, provider, host, port, username, password, folder, use_ssl, is_active, user_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
-        cursor.execute(query, (email_address, provider, host, port, username, password, folder, 1 if use_ssl else 0, 1 if is_active else 0))
+        cursor.execute(query, (email_address, provider, host, port, username, password, folder, 1 if use_ssl else 0, 1 if is_active else 0, user_id))
         mb_id = cursor.lastrowid
 
     cursor.close()
@@ -622,14 +646,26 @@ def add_connected_mailbox(
     return mb_id
 
 
-def get_all_connected_mailboxes(active_only: bool = False) -> list:
-    """Retrieve list of all connected mailboxes."""
+def get_all_connected_mailboxes(active_only: bool = False, user_id: Optional[int] = None, is_admin: bool = False) -> list:
+    """Retrieve list of all connected mailboxes (filtered by user if not admin)."""
     conn = get_connection()
     cursor = conn.cursor()
 
-    clause = "WHERE is_active = 1" if active_only else ""
-    query = f"SELECT id, email_address, provider, host, port, username, password, folder, use_ssl, is_active, total_ingested, created_at, last_polled, auth_type, access_token, refresh_token FROM connected_mailboxes {clause} ORDER BY id DESC"
-    cursor.execute(query)
+    conditions = []
+    params = []
+
+    if active_only:
+        conditions.append("is_active = 1")
+    if not is_admin and user_id is not None:
+        if ACTIVE_ENGINE == "mysql":
+            conditions.append("(user_id = %s OR user_id IS NULL)")
+        else:
+            conditions.append("(user_id = ? OR user_id IS NULL)")
+        params.append(user_id)
+
+    clause = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+    query = f"SELECT id, email_address, provider, host, port, username, password, folder, use_ssl, is_active, total_ingested, created_at, last_polled, auth_type, access_token, refresh_token, user_id FROM connected_mailboxes {clause} ORDER BY id DESC"
+    cursor.execute(query, tuple(params))
     columns = [desc[0] for desc in cursor.description]
     rows = cursor.fetchall()
 
@@ -701,7 +737,7 @@ def update_mailbox_stats(mailbox_id: int, count_increment: int = 1):
     conn.close()
 
 
-def upsert_oauth_mailbox(email_address: str, provider: str = "google", access_token: str = "", refresh_token: str = "") -> int:
+def upsert_oauth_mailbox(email_address: str, provider: str = "google", access_token: str = "", refresh_token: str = "", user_id: Optional[int] = None) -> int:
     """Register or update an OAuth-authenticated mailbox (e.g. Google OAuth 2.0)."""
     conn = get_connection()
     cursor = conn.cursor()
@@ -714,18 +750,18 @@ def upsert_oauth_mailbox(email_address: str, provider: str = "google", access_to
             cursor.execute(
                 """
                 UPDATE connected_mailboxes 
-                SET auth_type = 'oauth', access_token = %s, refresh_token = COALESCE(%s, refresh_token), is_active = 1
+                SET auth_type = 'oauth', access_token = %s, refresh_token = COALESCE(%s, refresh_token), is_active = 1, user_id = COALESCE(%s, user_id)
                 WHERE id = %s
                 """,
-                (access_token, refresh_token or None, mb_id),
+                (access_token, refresh_token or None, user_id, mb_id),
             )
         else:
             cursor.execute(
                 """
-                INSERT INTO connected_mailboxes (email_address, provider, host, port, username, password, folder, auth_type, access_token, refresh_token, is_active)
-                VALUES (%s, %s, 'gmail.googleapis.com', 443, %s, '', 'INBOX', 'oauth', %s, %s, 1)
+                INSERT INTO connected_mailboxes (email_address, provider, host, port, username, password, folder, auth_type, access_token, refresh_token, is_active, user_id)
+                VALUES (%s, %s, 'gmail.googleapis.com', 443, %s, '', 'INBOX', 'oauth', %s, %s, 1, %s)
                 """,
-                (email_address, provider, email_address, access_token, refresh_token),
+                (email_address, provider, email_address, access_token, refresh_token, user_id),
             )
             mb_id = cursor.lastrowid
     else:
@@ -736,18 +772,18 @@ def upsert_oauth_mailbox(email_address: str, provider: str = "google", access_to
             cursor.execute(
                 """
                 UPDATE connected_mailboxes 
-                SET auth_type = 'oauth', access_token = ?, refresh_token = COALESCE(?, refresh_token), is_active = 1
+                SET auth_type = 'oauth', access_token = ?, refresh_token = COALESCE(?, refresh_token), is_active = 1, user_id = COALESCE(?, user_id)
                 WHERE id = ?
                 """,
-                (access_token, refresh_token or None, mb_id),
+                (access_token, refresh_token or None, user_id, mb_id),
             )
         else:
             cursor.execute(
                 """
-                INSERT INTO connected_mailboxes (email_address, provider, host, port, username, password, folder, auth_type, access_token, refresh_token, is_active)
-                VALUES (?, ?, 'gmail.googleapis.com', 443, ?, '', 'INBOX', 'oauth', ?, ?, 1)
+                INSERT INTO connected_mailboxes (email_address, provider, host, port, username, password, folder, auth_type, access_token, refresh_token, is_active, user_id)
+                VALUES (?, ?, 'gmail.googleapis.com', 443, ?, '', 'INBOX', 'oauth', ?, ?, 1, ?)
                 """,
-                (email_address, provider, email_address, access_token, refresh_token),
+                (email_address, provider, email_address, access_token, refresh_token, user_id),
             )
             mb_id = cursor.lastrowid
 

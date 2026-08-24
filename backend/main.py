@@ -41,6 +41,7 @@ from auth import (
     verify_password,
     create_access_token,
     get_current_user,
+    get_optional_current_user,
 )
 import json
 import secrets
@@ -107,18 +108,19 @@ app.add_middleware(
 )
 
 
-def run_intelligence_pipeline(sender: str, subject: str, raw_headers: Optional[str], body_text: str) -> dict:
+def run_intelligence_pipeline(sender: str, subject: str, raw_headers: Optional[str], body_text: str, user_id: Optional[int] = None) -> dict:
     """Internal helper to execute the 4-vector intelligence pipeline and persist results."""
     # 1. Chain of Custody SHA-256 Hash
     sha256_hash = calculate_evidence_hash(sender, subject, raw_headers or "", body_text)
 
-    # 2. Insert Base Email
+    # 2. Insert Base Email (scoped to user_id if authenticated)
     email_id = insert_email(
         sender=sender,
         subject=subject,
         raw_headers=raw_headers,
         body_text=body_text,
         sha256_hash=sha256_hash,
+        user_id=user_id,
     )
 
     # 3. Vector 1: Phishing & Fraud NLP Heuristics
@@ -374,17 +376,22 @@ def get_current_user_profile(current_user: dict = Depends(get_current_user)):
     status_code=status.HTTP_201_CREATED,
     tags=["Emails & Forensics"],
 )
-def create_and_analyze_email(email_data: EmailCreate):
+def create_and_analyze_email(
+    email_data: EmailCreate,
+    current_user: Optional[dict] = Depends(get_optional_current_user),
+):
     """
     Ingest a new email payload, trigger the 4-step intelligence pipeline,
-    and persist results with SHA-256 chain of custody to MySQL.
+    and persist results with SHA-256 chain of custody to MySQL (scoped to user).
     """
     try:
+        user_id = current_user["id"] if current_user else None
         return run_intelligence_pipeline(
             sender=email_data.sender,
             subject=email_data.subject,
             raw_headers=email_data.raw_headers,
             body_text=email_data.body_text,
+            user_id=user_id,
         )
     except HTTPException:
         raise
@@ -401,19 +408,24 @@ def create_and_analyze_email(email_data: EmailCreate):
     status_code=status.HTTP_201_CREATED,
     tags=["Emails & Forensics"],
 )
-async def upload_raw_eml_file(file: UploadFile = File(...)):
+async def upload_raw_eml_file(
+    file: UploadFile = File(...),
+    current_user: Optional[dict] = Depends(get_optional_current_user),
+):
     """
     Upload and parse a raw RFC 822 .eml file directly through the forensic engine.
     """
     try:
         eml_content = await file.read()
         parsed = parse_raw_eml(eml_content)
+        user_id = current_user["id"] if current_user else None
 
         return run_intelligence_pipeline(
             sender=parsed["sender"],
             subject=parsed["subject"],
             raw_headers=parsed["raw_headers"],
             body_text=parsed["body_text"],
+            user_id=user_id,
         )
     except Exception as exc:
         raise HTTPException(
@@ -432,12 +444,16 @@ async def upload_raw_eml_file(file: UploadFile = File(...)):
     status_code=status.HTTP_201_CREATED,
     tags=["Connected Mailboxes"],
 )
-def connect_mailbox(req: MailboxConnectRequest):
+def connect_mailbox(
+    req: MailboxConnectRequest,
+    current_user: Optional[dict] = Depends(get_optional_current_user),
+):
     """
     Connect any live email account (Gmail, Outlook, Yahoo, or Custom IMAP)
     to automatically monitor and run all incoming emails through ByteTrail.
     """
     provider = req.provider.lower() if req.provider else "custom"
+    user_id = current_user["id"] if current_user else None
     
     # Resolve host/port from presets
     if provider in PROVIDER_PRESETS and not req.host:
@@ -482,6 +498,7 @@ def connect_mailbox(req: MailboxConnectRequest):
         folder=req.folder or "INBOX",
         use_ssl=use_ssl,
         is_active=True,
+        user_id=user_id,
     )
 
     mailboxes = get_all_connected_mailboxes()
@@ -508,7 +525,13 @@ def connect_mailbox(req: MailboxConnectRequest):
     response_model=List[MailboxResponse],
     tags=["Connected Mailboxes"],
 )
-def list_connected_mailboxes():
+def list_connected_mailboxes(current_user: Optional[dict] = Depends(get_optional_current_user)):
+    """
+    List all connected live email accounts for the authenticated user (or all if admin).
+    """
+    user_id = current_user["id"] if current_user else None
+    is_admin = (current_user and current_user.get("role") == "admin") or False
+    return get_all_connected_mailboxes(user_id=user_id, is_admin=is_admin)
     """
     List all connected live email accounts and their automated monitoring status.
     """
@@ -712,7 +735,9 @@ def google_oauth_callback(code: str, request: Request, state: Optional[str] = No
             return HTMLResponse(content=html)
 
         # Otherwise mailbox connection flow
-        mb_id = upsert_oauth_mailbox(user_email, provider="google", access_token=access_token, refresh_token=refresh_token)
+        user_record = get_user_by_email(user_email.strip().lower())
+        mb_user_id = user_record["id"] if user_record else None
+        mb_id = upsert_oauth_mailbox(user_email, provider="google", access_token=access_token, refresh_token=refresh_token, user_id=mb_user_id)
 
         raw_emls, _ = fetch_gmail_raw_messages(access_token, max_results=500)
         ingested_count = 0
@@ -724,6 +749,7 @@ def google_oauth_callback(code: str, request: Request, state: Optional[str] = No
                     subject=parsed["subject"],
                     raw_headers=parsed["raw_headers"],
                     body_text=parsed["body_text"],
+                    user_id=mb_user_id,
                 )
                 ingested_count += 1
             except Exception:
@@ -898,12 +924,14 @@ def get_integrations_status():
     response_model=List[EmailDetailResponse],
     tags=["Emails & Forensics"],
 )
-def list_emails():
+def list_emails(current_user: Optional[dict] = Depends(get_optional_current_user)):
     """
-    Retrieve all analyzed emails with complete threat intelligence metadata.
+    Retrieve analyzed emails for the authenticated user (or all if admin).
     """
     try:
-        return get_all_emails_enriched()
+        user_id = current_user["id"] if current_user else None
+        is_admin = (current_user and current_user.get("role") == "admin") or False
+        return get_all_emails_enriched(user_id=user_id, is_admin=is_admin)
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

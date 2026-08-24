@@ -187,3 +187,22 @@ def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] = Depen
         )
 
     return user
+
+
+def get_optional_current_user(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)) -> Optional[Dict[str, Any]]:
+    """
+    FastAPI dependency returning current user if Bearer token is provided, or None.
+    """
+    if not credentials or not credentials.credentials:
+        return None
+    try:
+        token = credentials.credentials
+        payload = verify_access_token(token)
+        user_id = payload.get("sub") or payload.get("id")
+        if not user_id:
+            return None
+        from db import get_user_by_id
+        return get_user_by_id(int(user_id))
+    except Exception:
+        return None
+

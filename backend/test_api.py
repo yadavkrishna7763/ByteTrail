@@ -232,3 +232,38 @@ def test_google_signin_flow():
         assert data["user"]["role"] == "analyst"
 
 
+def test_user_data_isolation():
+    import uuid
+    with TestClient(app) as c:
+        u1_email = f"user1.{uuid.uuid4().hex[:6]}@domain.com"
+        u2_email = f"user2.{uuid.uuid4().hex[:6]}@domain.com"
+
+        # Register User 1 & 2
+        r1 = c.post("/api/auth/register", json={"email": u1_email, "password": "Password123!", "full_name": "User One", "role": "analyst"}).json()
+        r2 = c.post("/api/auth/register", json={"email": u2_email, "password": "Password123!", "full_name": "User Two", "role": "analyst"}).json()
+
+        h1 = {"Authorization": f"Bearer {r1['access_token']}"}
+        h2 = {"Authorization": f"Bearer {r2['access_token']}"}
+
+        # User 1 ingests Email 1
+        e1_resp = c.post("/emails", json={"sender": "attacker1@phish.com", "subject": "User 1 Confidential Alert", "body_text": "Please verify user 1 account"}, headers=h1)
+        assert e1_resp.status_code == 201
+
+        # User 2 ingests Email 2
+        e2_resp = c.post("/emails", json={"sender": "attacker2@phish.com", "subject": "User 2 Confidential Alert", "body_text": "Please verify user 2 account"}, headers=h2)
+        assert e2_resp.status_code == 201
+
+        # Query User 1 emails
+        u1_emails = c.get("/emails", headers=h1).json()
+        u1_subjects = [e["subject"] for e in u1_emails]
+        assert "User 1 Confidential Alert" in u1_subjects
+        assert "User 2 Confidential Alert" not in u1_subjects
+
+        # Query User 2 emails
+        u2_emails = c.get("/emails", headers=h2).json()
+        u2_subjects = [e["subject"] for e in u2_emails]
+        assert "User 2 Confidential Alert" in u2_subjects
+        assert "User 1 Confidential Alert" not in u2_subjects
+
+
+
