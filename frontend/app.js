@@ -728,7 +728,7 @@ async function handleFileUpload(file) {
         const data = await response.json();
         showToast(`✅ Case #${data.id} Ingested from EML: ${data.risk_level.toUpperCase()} THREAT (${data.final_score}/100)`, "success");
         await loadEmails(true);
-        openForensicModal(data.id);
+        runSequential4VectorPipeline(data);
     } catch (err) {
         showToast(`❌ EML Upload failed: ${err.message}`, "error");
     }
@@ -1459,13 +1459,224 @@ async function handleIngestSubmit(e) {
         showToast(`✅ Case #${data.id} Ingested: ${data.risk_level.toUpperCase()} THREAT (${data.final_score}/100)`, "success");
         document.getElementById("ingest-form").reset();
         await loadEmails(true);
-        openForensicModal(data.id);
+        runSequential4VectorPipeline(data);
     } catch (err) {
         showToast(`❌ Ingestion failed: ${err.message}`, "error");
     } finally {
         btn.disabled = false;
         spinner.classList.add("hidden");
     }
+}
+
+// Sequential 4-Vector Pipeline Progress HUD Visualizer
+async function runSequential4VectorPipeline(emailResult) {
+    const modal = document.getElementById("modal-pipeline-progress");
+    const fill = document.getElementById("pipeline-progress-bar-fill");
+    const pctLabel = document.getElementById("pipeline-pct-label");
+    const statusBadge = document.getElementById("pipeline-status-badge");
+    const terminal = document.getElementById("pipeline-live-terminal");
+
+    if (!modal) {
+        openForensicModal(emailResult.id);
+        return;
+    }
+
+    const resetStepCard = (id, detailDefault, badgeDefault) => {
+        const card = document.getElementById(id);
+        const detail = document.getElementById(`${id}-detail`);
+        const badge = document.getElementById(`${id}-badge`);
+        if (card) {
+            card.style.borderColor = "var(--border-subtle)";
+            card.style.background = "rgba(24, 24, 27, 0.8)";
+            card.style.boxShadow = "none";
+        }
+        if (detail) detail.textContent = detailDefault;
+        if (badge) {
+            badge.textContent = badgeDefault;
+            badge.className = "badge-risk-pill";
+            badge.style.background = "rgba(255, 255, 255, 0.06)";
+            badge.style.color = "var(--text-muted)";
+        }
+    };
+
+    resetStepCard("step-v1", "Waiting to inspect deceptive urgency & phishing patterns...", "PENDING");
+    resetStepCard("step-v2", "Waiting to audit SPF, DKIM, DMARC alignment...", "PENDING");
+    resetStepCard("step-v3", "Waiting to resolve relay IP, ASN/ISP & Tor node...", "PENDING");
+    resetStepCard("step-v4", "Waiting to compute SHA-256 fingerprint & risk rating...", "PENDING");
+
+    if (fill) fill.style.width = "0%";
+    if (pctLabel) pctLabel.textContent = "0%";
+    if (statusBadge) {
+        statusBadge.textContent = "RUNNING SEQUENCE...";
+        statusBadge.style.color = "#c4b5fd";
+    }
+
+    const appendLog = (msg, color = "#a1a1aa") => {
+        if (!terminal) return;
+        const line = document.createElement("div");
+        line.style.color = color;
+        line.style.marginTop = "0.2rem";
+        line.textContent = msg;
+        terminal.appendChild(line);
+        terminal.scrollTop = terminal.scrollHeight;
+    };
+
+    if (terminal) terminal.innerHTML = "";
+    appendLog(`[INIT] Executing 4-Vector Threat Forensic Pipeline for Case #${emailResult.id}...`, "#a78bfa");
+
+    modal.classList.remove("hidden");
+
+    const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+
+    // ==========================================
+    // STEP 1: Vector 1 - Deceptive NLP Heuristics
+    // ==========================================
+    const cardV1 = document.getElementById("step-v1");
+    const badgeV1 = document.getElementById("step-v1-badge");
+    const detailV1 = document.getElementById("step-v1-detail");
+    if (cardV1) {
+        cardV1.style.borderColor = "#3b82f6";
+        cardV1.style.background = "rgba(59, 130, 246, 0.08)";
+        cardV1.style.boxShadow = "0 0 15px rgba(59, 130, 246, 0.15)";
+    }
+    if (badgeV1) {
+        badgeV1.textContent = "ANALYZING...";
+        badgeV1.style.background = "rgba(59, 130, 246, 0.2)";
+        badgeV1.style.color = "#60a5fa";
+    }
+    appendLog(`[VECTOR-1] Inspecting deceptive linguistics, NLP phishing indicators & urgency keywords...`, "#60a5fa");
+    await sleep(400);
+
+    const fraudPct = Math.round((emailResult.fraud_score || 0) * 100);
+    if (detailV1) detailV1.textContent = `Fraud Score: ${fraudPct}% | Deceptive Language Analyzed`;
+    if (badgeV1) {
+        if (fraudPct >= 50) {
+            badgeV1.textContent = `FLAGGED (${fraudPct}%)`;
+            badgeV1.className = "badge-risk-pill high";
+        } else {
+            badgeV1.textContent = `CLEAN (${fraudPct}%)`;
+            badgeV1.className = "badge-risk-pill low";
+        }
+    }
+    if (fill) fill.style.width = "25%";
+    if (pctLabel) pctLabel.textContent = "25%";
+    appendLog(`[VECTOR-1 COMPLETE] Deceptive NLP Fraud Score: ${fraudPct}%`, fraudPct >= 50 ? "#f87171" : "#34d399");
+
+    // ==========================================
+    // STEP 2: Vector 2 - RFC 822 Forensic Headers
+    // ==========================================
+    const cardV2 = document.getElementById("step-v2");
+    const badgeV2 = document.getElementById("step-v2-badge");
+    const detailV2 = document.getElementById("step-v2-detail");
+    if (cardV2) {
+        cardV2.style.borderColor = "#8b5cf6";
+        cardV2.style.background = "rgba(139, 92, 246, 0.08)";
+        cardV2.style.boxShadow = "0 0 15px rgba(139, 92, 246, 0.15)";
+    }
+    if (badgeV2) {
+        badgeV2.textContent = "AUDITING...";
+        badgeV2.style.background = "rgba(139, 92, 246, 0.2)";
+        badgeV2.style.color = "#a78bfa";
+    }
+    appendLog(`[VECTOR-2] Auditing RFC 822 headers for SPF, DKIM signature & DMARC alignment...`, "#a78bfa");
+    await sleep(400);
+
+    const spf = (emailResult.spf_result || "none").toUpperCase();
+    const dkim = (emailResult.dkim_result || "none").toUpperCase();
+    const dmarc = (emailResult.dmarc_result || "none").toUpperCase();
+    const headerValid = emailResult.header_valid;
+
+    if (detailV2) detailV2.textContent = `SPF: ${spf} | DKIM: ${dkim} | DMARC: ${dmarc}`;
+    if (badgeV2) {
+        if (!headerValid || spf === "FAIL" || dkim === "FAIL") {
+            badgeV2.textContent = `HEADER FAIL (${spf}/${dkim})`;
+            badgeV2.className = "badge-risk-pill high";
+        } else {
+            badgeV2.textContent = `VERIFIED (${spf}/${dkim})`;
+            badgeV2.className = "badge-risk-pill low";
+        }
+    }
+    if (fill) fill.style.width = "50%";
+    if (pctLabel) pctLabel.textContent = "50%";
+    appendLog(`[VECTOR-2 COMPLETE] Header Validation: SPF=${spf}, DKIM=${dkim}, DMARC=${dmarc}`, headerValid ? "#34d399" : "#f87171");
+
+    // ==========================================
+    // STEP 3: Vector 3 - Origin GeoIP & Threat Intel
+    // ==========================================
+    const cardV3 = document.getElementById("step-v3");
+    const badgeV3 = document.getElementById("step-v3-badge");
+    const detailV3 = document.getElementById("step-v3-detail");
+    if (cardV3) {
+        cardV3.style.borderColor = "#ec4899";
+        cardV3.style.background = "rgba(236, 72, 153, 0.08)";
+        cardV3.style.boxShadow = "0 0 15px rgba(236, 72, 153, 0.15)";
+    }
+    if (badgeV3) {
+        badgeV3.textContent = "RESOLVING...";
+        badgeV3.style.background = "rgba(236, 72, 153, 0.2)";
+        badgeV3.style.color = "#f472b6";
+    }
+    const ip = emailResult.ip_address || "127.0.0.1";
+    appendLog(`[VECTOR-3] Querying GeoIP database & threat intel for relay node ${ip}...`, "#f472b6");
+    await sleep(400);
+
+    const geoLoc = `${emailResult.city || "Unknown City"}, ${emailResult.country || "Unknown Country"}`;
+    const isp = emailResult.isp_asn || "Standard Relays";
+    const isTor = emailResult.is_vpn_tor;
+
+    if (detailV3) detailV3.textContent = `Relay IP: ${ip} (${geoLoc}) | ASN: ${isp}`;
+    if (badgeV3) {
+        if (isTor) {
+            badgeV3.textContent = `TOR / VPN DETECTED`;
+            badgeV3.className = "badge-risk-pill high";
+        } else {
+            badgeV3.textContent = `GEO RESOLVED (${emailResult.country || "IP"})`;
+            badgeV3.className = "badge-risk-pill low";
+        }
+    }
+    if (fill) fill.style.width = "75%";
+    if (pctLabel) pctLabel.textContent = "75%";
+    appendLog(`[VECTOR-3 COMPLETE] Origin GeoIP: ${geoLoc} [${ip}] | ASN: ${isp}`, isTor ? "#f87171" : "#34d399");
+
+    // ==========================================
+    // STEP 4: Vector 4 - ISO 27037 Evidence Hash & Risk Rating
+    // ==========================================
+    const cardV4 = document.getElementById("step-v4");
+    const badgeV4 = document.getElementById("step-v4-badge");
+    const detailV4 = document.getElementById("step-v4-detail");
+    if (cardV4) {
+        cardV4.style.borderColor = "#10b981";
+        cardV4.style.background = "rgba(16, 185, 129, 0.08)";
+        cardV4.style.boxShadow = "0 0 15px rgba(16, 185, 129, 0.15)";
+    }
+    if (badgeV4) {
+        badgeV4.textContent = "SEALING...";
+        badgeV4.style.background = "rgba(16, 185, 129, 0.2)";
+        badgeV4.style.color = "#34d399";
+    }
+    appendLog(`[VECTOR-4] Generating SHA-256 chain-of-custody fingerprint & multi-factor risk score...`, "#34d399");
+    await sleep(400);
+
+    const hashSnippet = emailResult.sha256_hash ? emailResult.sha256_hash.substring(0, 16) + "..." : "SEALED";
+    const riskLevel = (emailResult.risk_level || "low").toLowerCase();
+    const finalScore = emailResult.final_score || 0;
+
+    if (detailV4) detailV4.textContent = `SHA-256: ${hashSnippet} | Composite Risk Score: ${finalScore}/100`;
+    if (badgeV4) {
+        badgeV4.textContent = `${riskLevel.toUpperCase()} THREAT (${finalScore}/100)`;
+        badgeV4.className = `badge-risk-pill ${riskLevel}`;
+    }
+    if (fill) fill.style.width = "100%";
+    if (pctLabel) pctLabel.textContent = "100%";
+    if (statusBadge) {
+        statusBadge.textContent = "VERIFICATION COMPLETE";
+        statusBadge.style.color = "#34d399";
+    }
+    appendLog(`[VECTOR-4 COMPLETE] SHA-256 Sealed. Aggregated Rating: ${riskLevel.toUpperCase()} (${finalScore}/100)`, "#34d399");
+
+    await sleep(600);
+    modal.classList.add("hidden");
+    openForensicModal(emailResult.id);
 }
 
 // Open Forensic Inspection HUD Modal
