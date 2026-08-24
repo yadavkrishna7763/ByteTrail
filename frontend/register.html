@@ -82,15 +82,6 @@
                         <input type="password" id="signup-password" placeholder="Min 6 characters" required autocomplete="new-password">
                     </div>
 
-                    <div class="form-field">
-                        <label for="signup-role"><i class="fa-solid fa-id-badge"></i> Assigned Security Role</label>
-                        <select id="signup-role" style="background: var(--bg-input); border: 1px solid var(--border-subtle); border-radius: 0.45rem; padding: 0.65rem; color: var(--text-primary); font-size: 0.85rem;">
-                            <option value="analyst">SOC Security Analyst (Tier 1/2)</option>
-                            <option value="admin">SOC Lead / Incident Manager</option>
-                            <option value="viewer">Compliance Auditor / Read-Only</option>
-                        </select>
-                    </div>
-
                     <div id="signup-alert" class="hidden alert-box-auth"></div>
 
                     <button type="submit" class="btn btn-cyber-primary" id="btn-submit-signup" style="width: 100%; justify-content: center; padding: 0.8rem; font-size: 0.95rem; margin-top: 0.35rem;">
@@ -164,7 +155,7 @@
             const fullName = document.getElementById("signup-name").value;
             const email = document.getElementById("signup-email").value;
             const password = document.getElementById("signup-password").value;
-            const role = document.getElementById("signup-role").value;
+            const role = "analyst";
             const alertBox = document.getElementById("signup-alert");
             const spinner = document.getElementById("signup-spinner");
             const btn = document.getElementById("btn-submit-signup");
