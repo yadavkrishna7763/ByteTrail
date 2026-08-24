@@ -88,7 +88,7 @@ async def lifespan(app: FastAPI):
 
     # 3. Register pipeline runner and start automated background mailbox polling daemon
     mailbox_manager.register_pipeline_runner(run_intelligence_pipeline)
-    mailbox_manager.start_background_poller(interval_seconds=10)
+    mailbox_manager.start_background_poller(interval_seconds=60)
 
     yield
 

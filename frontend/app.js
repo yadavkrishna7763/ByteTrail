@@ -859,7 +859,7 @@ async function loadConnectedMailboxes() {
                         </div>
                         <div>
                             <span style="color: var(--text-muted); display: block;">Interval</span>
-                            <span style="color: var(--text-primary); font-family: var(--font-mono);">Every 10s</span>
+                            <span style="color: var(--text-primary); font-family: var(--font-mono);">Every 60s</span>
                         </div>
                     </div>
 

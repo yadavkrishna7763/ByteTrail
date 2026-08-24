@@ -137,7 +137,8 @@ def fetch_user_email(access_token: str) -> str:
 def fetch_gmail_raw_messages(
     access_token: str,
     max_results: int = 500,
-    page_token: Optional[str] = None
+    page_token: Optional[str] = None,
+    unread_only: bool = False,
 ) -> Tuple[List[bytes], Optional[str]]:
     """
     Fetch raw RFC 822 email bytes from Gmail REST API (up to 500 per batch for maximum speed).
@@ -158,9 +159,14 @@ def fetch_gmail_raw_messages(
     raw_emails = []
     next_page_token = None
 
-    url = f"{GMAIL_MESSAGES_ENDPOINT}?maxResults={min(max_results, 500)}"
+    params = {"maxResults": min(max_results, 500)}
+    # Continuous polling should only retrieve newly unread inbox items. A deep
+    # scan explicitly opts out and can inspect historical mail in batches.
+    if unread_only:
+        params["q"] = "is:unread"
     if page_token:
-        url += f"&pageToken={urllib.parse.quote(page_token)}"
+        params["pageToken"] = page_token
+    url = f"{GMAIL_MESSAGES_ENDPOINT}?{urllib.parse.urlencode(params)}"
 
     import concurrent.futures
 
@@ -173,6 +179,10 @@ def fetch_gmail_raw_messages(
             if list_resp.status_code == 403:
                 raise ValueError(
                     "Google denied Gmail access. Enable the Gmail API in Google Cloud, add this account as a test user if the app is in Testing, then reconnect and approve Gmail read-only access."
+                )
+            if list_resp.status_code == 429:
+                raise ValueError(
+                    "Gmail is temporarily rate limiting scans. Wait one minute, then use Sync New; live monitoring will retry automatically."
                 )
             raise ValueError(
                 f"Gmail could not read this inbox (Google API error {list_resp.status_code}). Reconnect and approve the Gmail read-only permission."

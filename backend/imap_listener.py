@@ -76,7 +76,7 @@ class MultiMailboxManager:
     def register_pipeline_runner(self, runner_func):
         self._pipeline_runner = runner_func
 
-    def start_background_poller(self, interval_seconds: int = 10):
+    def start_background_poller(self, interval_seconds: int = 60):
         """Start background daemon thread that polls all active accounts."""
         if self._is_running:
             return
@@ -107,7 +107,8 @@ class MultiMailboxManager:
 
         for mb in mailboxes:
             try:
-                res = self._poll_single_mailbox(mb)
+                # Keep continuous monitoring light: only a small unread batch.
+                res = self._poll_single_mailbox(mb, include_read=False, limit=20)
                 ingested = res.get("records", []) if isinstance(res, dict) else res
                 if ingested:
                     all_ingested.extend(ingested)
@@ -148,9 +149,14 @@ class MultiMailboxManager:
                 from eml_parser import parse_eml_bytes
                 try:
                     raw_emls, next_token = fetch_gmail_raw_messages(
-                        access_token, max_results=limit or 500, page_token=page_token
+                        access_token,
+                        max_results=limit or 500,
+                        page_token=page_token,
+                        unread_only=not include_read,
                     )
-                except ValueError:
+                except ValueError as exc:
+                    if "rate limiting" in str(exc).lower():
+                        raise
                     # Google access tokens are short-lived. Retry once with the
                     # stored refresh token so background live polling keeps working.
                     refreshed = refresh_google_access_token(mb.get("refresh_token", ""))
@@ -158,7 +164,10 @@ class MultiMailboxManager:
                     from db import update_mailbox_tokens
                     update_mailbox_tokens(mb["id"], access_token, refreshed.get("refresh_token"))
                     raw_emls, next_token = fetch_gmail_raw_messages(
-                        access_token, max_results=limit or 500, page_token=page_token
+                        access_token,
+                        max_results=limit or 500,
+                        page_token=page_token,
+                        unread_only=not include_read,
                     )
                 ingested_records = []
                 for eml_bytes in raw_emls:
