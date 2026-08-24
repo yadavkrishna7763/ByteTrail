@@ -45,10 +45,6 @@
 
             <!-- Nav Actions & User Profile Area -->
             <div class="nav-right">
-                <button class="btn btn-cyber-secondary btn-sm" id="btn-landing-demo-login" title="1-Click Administrator Access">
-                    <i class="fa-solid fa-user-shield" style="color: #34d399;"></i>
-                    <span>Admin Quick Access</span>
-                </button>
                 <a href="login.html" class="btn btn-cyber-primary btn-sm" id="btn-landing-main-cta">
                     <i class="fa-solid fa-lock"></i>
                     <span id="label-landing-cta">Sign In / Register</span>
@@ -76,10 +72,6 @@
                         <i class="fa-solid fa-microscope"></i>
                         <span>Launch Live SOC Console</span>
                     </a>
-                    <button class="btn btn-hero-secondary" id="btn-hero-quick-demo">
-                        <i class="fa-solid fa-user-shield" style="color: #34d399;"></i>
-                        <span>1-Click Admin (Krishna Yadav)</span>
-                    </button>
                     <a href="login.html" class="btn btn-hero-ghost">
                         <i class="fa-brands fa-google" style="color: #60a5fa;"></i>
                         <span>Sign In with Google</span>
@@ -325,21 +317,6 @@
                 ctaLabel.textContent = `Console (${user.full_name.split(" ")[0]})`;
             }
         }
-
-        // Administrator Login Click (Krishna Yadav)
-        const handleDemoClick = async () => {
-            showToast("⚡ Authenticating as Administrator (krishnayadav770694@gmail.com)...", "info");
-            try {
-                const data = await executeDemoLogin();
-                showToast(`🚀 Authenticated as ${data.user.full_name}! Redirecting...`, "success");
-                setTimeout(() => window.location.href = "dashboard.html", 500);
-            } catch (err) {
-                showToast(`❌ Admin login error: ${err.message}`, "error");
-            }
-        };
-
-        document.getElementById("btn-landing-demo-login")?.addEventListener("click", handleDemoClick);
-        document.getElementById("btn-hero-quick-demo")?.addEventListener("click", handleDemoClick);
 
         function showToast(msg, type = "info") {
             const container = document.getElementById("toast-container");
