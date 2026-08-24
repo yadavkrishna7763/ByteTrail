@@ -103,13 +103,6 @@ document.addEventListener("DOMContentLoaded", () => {
     loadConnectedMailboxes();
     initEventListeners();
 
-    // If user already has active session, open SOC console; otherwise start on showcase guide
-    if (getAuthToken()) {
-        switchViewMode("soc");
-    } else {
-        switchViewMode("landing");
-    }
-
     // Auto health check polling
     setInterval(() => {
         checkBackendStatus();
@@ -179,9 +172,7 @@ function setAuthSession(token, user) {
 function clearAuthSession() {
     localStorage.removeItem("bytetrail_jwt_token");
     localStorage.removeItem("bytetrail_user");
-    renderAuthUI();
-    switchViewMode("landing");
-    showToast("Signed out successfully.", "info");
+    window.location.href = "login.html";
 }
 
 function getAuthHeaders(extraHeaders = {}) {

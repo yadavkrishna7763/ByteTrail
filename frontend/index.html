@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>ByteTrail — Enterprise Threat Intelligence & Forensic Platform</title>
+    <title>ByteTrail — Enterprise Threat Intelligence & Email Forensics</title>
     
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="assets/logo.png">
@@ -13,21 +13,17 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     
-    <!-- Leaflet.js CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-    
-    <!-- FontAwesome Icons for SOC UI -->
+    <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
-    <!-- Custom Modern UI Styles -->
+    <!-- Styles -->
     <link rel="stylesheet" href="styles.css">
 </head>
 <body class="soc-theme">
-    <!-- App Container -->
     <div class="app-wrapper">
         <!-- Top Executive Navbar -->
         <header class="top-nav">
-            <div class="brand-cluster" id="brand-home-link" style="cursor: pointer;" title="Back to Overview">
+            <a href="index.html" class="brand-cluster" style="text-decoration: none;">
                 <div class="brand-logo" style="overflow: hidden; display: flex; align-items: center; justify-content: center; padding: 0;">
                     <img src="assets/logo.png" alt="ByteTrail Logo" style="width: 100%; height: 100%; object-fit: cover; border-radius: inherit;">
                 </div>
@@ -37,65 +33,31 @@
                         <span class="version-tag">SOC v2.6</span>
                     </div>
                 </div>
-            </div>
+            </a>
 
-            <!-- View Switcher: Showcase vs SOC Console -->
-            <div class="nav-mode-switcher">
-                <button class="nav-mode-btn active" id="btn-mode-landing">
-                    <i class="fa-solid fa-compass"></i>
-                    <span>Product & Privacy Guide</span>
-                </button>
-                <button class="nav-mode-btn" id="btn-mode-soc">
-                    <i class="fa-solid fa-shield-halved"></i>
-                    <span>Live SOC Console</span>
-                </button>
-            </div>
+            <!-- Central Nav Links -->
+            <nav class="nav-tabs landing-nav-links">
+                <a href="#vectors" class="nav-tab"><i class="fa-solid fa-brain"></i> <span>4-Vector Engine</span></a>
+                <a href="#privacy" class="nav-tab"><i class="fa-solid fa-shield-halved"></i> <span>Privacy & Security</span></a>
+                <a href="#capabilities" class="nav-tab"><i class="fa-solid fa-satellite-dish"></i> <span>SOC Modules</span></a>
+                <a href="#tech-stack" class="nav-tab"><i class="fa-solid fa-microchip"></i> <span>Architecture</span></a>
+            </nav>
 
             <!-- Nav Actions & User Profile Area -->
             <div class="nav-right">
-                <div class="status-chip" id="backend-status-chip">
-                    <span class="pulse-dot"></span>
-                    <span id="backend-status-label">Connecting...</span>
-                </div>
-
-                <!-- Unauthenticated State Buttons -->
-                <div class="auth-btn-cluster" id="auth-unlogged-cluster">
-                    <button class="btn btn-cyber-secondary btn-sm" id="btn-quick-demo-login" title="1-Click Instant Demo Login">
-                        <i class="fa-solid fa-bolt" style="color: #fbbf24;"></i>
-                        <span>Demo Analyst</span>
-                    </button>
-                    <button class="btn btn-cyber-primary btn-sm" id="btn-open-login-modal">
-                        <i class="fa-solid fa-lock"></i>
-                        <span>Sign In / Register</span>
-                    </button>
-                </div>
-
-                <!-- Authenticated State Cluster -->
-                <div class="auth-btn-cluster hidden" id="auth-logged-cluster">
-                    <button class="btn btn-cyber-primary btn-sm" id="btn-open-connect-modal" title="Connect Gmail, Outlook or IMAP Mailbox">
-                        <i class="fa-solid fa-plug"></i>
-                        <span>Connect Inbox</span>
-                    </button>
-
-                    <!-- User Profile Dropdown Pill -->
-                    <div class="user-profile-pill" id="user-profile-pill">
-                        <div class="user-avatar-circle" id="user-avatar-initials">SA</div>
-                        <div class="user-profile-info">
-                            <span class="user-profile-name" id="user-display-name">Analyst</span>
-                            <span class="user-profile-role" id="user-display-role">SOC Analyst</span>
-                        </div>
-                        <button class="btn-logout" id="btn-user-logout" title="Sign Out">
-                            <i class="fa-solid fa-arrow-right-from-bracket"></i>
-                        </button>
-                    </div>
-                </div>
+                <button class="btn btn-cyber-secondary btn-sm" id="btn-landing-demo-login" title="1-Click Instant Demo Login">
+                    <i class="fa-solid fa-bolt" style="color: #fbbf24;"></i>
+                    <span>Demo Analyst</span>
+                </button>
+                <a href="login.html" class="btn btn-cyber-primary btn-sm" id="btn-landing-main-cta">
+                    <i class="fa-solid fa-lock"></i>
+                    <span id="label-landing-cta">Sign In / Register</span>
+                </a>
             </div>
         </header>
 
-        <!-- ===================================================================
-             SECTION 1: PUBLIC FRONT PAGE / PRODUCT & PRIVACY SHOWCASE
-             =================================================================== -->
-        <section class="landing-page" id="landing-page">
+        <!-- Main Product Showcase Landing Section -->
+        <section class="landing-page">
             <!-- Hero Section -->
             <div class="hero-container">
                 <div class="hero-badge">
@@ -110,15 +72,15 @@
                     ByteTrail autonomously inspects inbound email payloads across 4 intelligence vectors: NLP deceptive linguistics, RFC 822 cryptographic authentication, relay origin geolocation, and ISO/IEC 27037 compliant tamper-proof evidence custody.
                 </p>
                 <div class="hero-cta-row">
-                    <button class="btn btn-hero-primary" id="btn-hero-launch-soc">
+                    <a href="dashboard.html" class="btn btn-hero-primary">
                         <i class="fa-solid fa-microscope"></i>
                         <span>Launch Live SOC Console</span>
-                    </button>
-                    <button class="btn btn-hero-secondary" id="btn-hero-demo-login">
+                    </a>
+                    <button class="btn btn-hero-secondary" id="btn-hero-quick-demo">
                         <i class="fa-solid fa-bolt" style="color: #fbbf24;"></i>
                         <span>1-Click Demo Analyst Login</span>
                     </button>
-                    <a href="#how-it-works-section" class="btn btn-hero-ghost">
+                    <a href="#privacy" class="btn btn-hero-ghost">
                         <i class="fa-solid fa-shield-halved"></i>
                         <span>How Your Email Is Protected</span>
                     </a>
@@ -146,7 +108,7 @@
             </div>
 
             <!-- 4-Vector Intelligence Engine Grid -->
-            <div class="showcase-section">
+            <div class="showcase-section" id="vectors">
                 <div class="section-header-center">
                     <span class="section-pill">Core Intelligence Pipeline</span>
                     <h2 class="section-title">The 4-Vector Cybersecurity Analysis Engine</h2>
@@ -193,7 +155,7 @@
             </div>
 
             <!-- "How Your Email Is Handled & Protected" Privacy Architecture -->
-            <div class="showcase-section" id="how-it-works-section" style="background: var(--bg-surface); border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle);">
+            <div class="showcase-section" id="privacy" style="background: var(--bg-surface); border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle);">
                 <div class="section-header-center">
                     <span class="section-pill" style="color: #34d399; border-color: rgba(16, 185, 129, 0.3); background: rgba(16, 185, 129, 0.08);">
                         <i class="fa-solid fa-lock"></i> Privacy-First Architecture
@@ -234,7 +196,7 @@
             </div>
 
             <!-- Platform Capabilities Showcase -->
-            <div class="showcase-section">
+            <div class="showcase-section" id="capabilities">
                 <div class="section-header-center">
                     <span class="section-pill">Interactive SOC Modules</span>
                     <h2 class="section-title">Complete SOC Forensic Command Suite</h2>
@@ -242,58 +204,58 @@
                 </div>
 
                 <div class="capabilities-grid">
-                    <div class="capability-card" onclick="switchViewMode('soc', 'radar')">
+                    <a href="dashboard.html" class="capability-card" style="text-decoration: none;">
                         <div class="cap-icon"><i class="fa-solid fa-satellite-dish"></i></div>
                         <div class="cap-info">
                             <h4>Global Threat Radar Map</h4>
                             <p>Real-time Leaflet map visualizes physical relay origins with severity-coded pins and live incident telemetry tickers.</p>
                         </div>
-                    </div>
+                    </a>
 
-                    <div class="capability-card" onclick="switchViewMode('soc', 'ingest')">
+                    <a href="dashboard.html" class="capability-card" style="text-decoration: none;">
                         <div class="cap-icon"><i class="fa-solid fa-vial-virus"></i></div>
                         <div class="cap-info">
                             <h4>Threat Ingestion Lab & Testbench</h4>
                             <p>Drag & drop raw .EML files, test real-world attack scenarios (PayPal Phish, CEO BEC, M365 credential lures), and inspect headers.</p>
                         </div>
-                    </div>
+                    </a>
 
-                    <div class="capability-card" onclick="switchViewMode('soc', 'mailboxes')">
+                    <a href="dashboard.html" class="capability-card" style="text-decoration: none;">
                         <div class="cap-icon"><i class="fa-solid fa-inbox"></i></div>
                         <div class="cap-info">
                             <h4>Live Mailbox Continuous Polling</h4>
                             <p>Connect Google Gmail via OAuth 2.0 or corporate IMAP mailboxes for continuous automated background threat detection.</p>
                         </div>
-                    </div>
+                    </a>
 
-                    <div class="capability-card" onclick="switchViewMode('soc', 'feed')">
+                    <a href="dashboard.html" class="capability-card" style="text-decoration: none;">
                         <div class="cap-icon"><i class="fa-solid fa-database"></i></div>
                         <div class="cap-info">
                             <h4>Forensic Audit Feed & PDF Reports</h4>
                             <p>Searchable relational incident log with SHA-256 evidence integrity hashes and one-click court-admissible PDF downloads.</p>
                         </div>
-                    </div>
+                    </a>
 
-                    <div class="capability-card" onclick="switchViewMode('soc', 'graph')">
+                    <a href="dashboard.html" class="capability-card" style="text-decoration: none;">
                         <div class="cap-icon"><i class="fa-solid fa-diagram-project"></i></div>
                         <div class="cap-info">
                             <h4>Campaign Graph & Attribution</h4>
                             <p>Graph theory correlation clustering shared relay IPs, suspicious domains, and coordinated adversary infrastructure.</p>
                         </div>
-                    </div>
+                    </a>
 
-                    <div class="capability-card" onclick="switchViewMode('soc', 'analytics')">
+                    <a href="dashboard.html" class="capability-card" style="text-decoration: none;">
                         <div class="cap-icon"><i class="fa-solid fa-chart-pie"></i></div>
                         <div class="cap-info">
                             <h4>Threat Matrix & Compliance Stats</h4>
                             <p>Attack vector distribution percentages, top threat origin geographies, and SPF/DKIM/DMARC protocol compliance meters.</p>
                         </div>
-                    </div>
+                    </a>
                 </div>
             </div>
 
             <!-- Enterprise Tech Stack Banner -->
-            <div class="showcase-section" style="padding-top: 1rem;">
+            <div class="showcase-section" id="tech-stack" style="padding-top: 1rem;">
                 <div class="tech-stack-card">
                     <div class="tech-stack-title"><i class="fa-solid fa-microchip"></i> Enterprise Technology Standards & Architecture</div>
                     <div class="tech-badges-list">
@@ -315,475 +277,18 @@
                         Join security analysts using ByteTrail to detect sophisticated social engineering, verify cryptographic signatures, and generate legal forensic evidence.
                     </p>
                     <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
-                        <button class="btn btn-hero-primary" id="btn-bottom-launch-soc">
+                        <a href="dashboard.html" class="btn btn-hero-primary">
                             <i class="fa-solid fa-microscope"></i>
                             <span>Access SOC Console</span>
-                        </button>
-                        <button class="btn btn-cyber-secondary" id="btn-bottom-open-auth" style="padding: 0.75rem 1.5rem; font-size: 0.95rem;">
-                            <i class="fa-solid fa-lock"></i>
-                            <span>Sign In / Create Account</span>
-                        </button>
+                        </a>
+                        <a href="register.html" class="btn btn-cyber-secondary" style="padding: 0.75rem 1.5rem; font-size: 0.95rem; text-decoration: none;">
+                            <i class="fa-solid fa-user-plus"></i>
+                            <span>Create Analyst Account</span>
+                        </a>
                     </div>
                 </div>
             </div>
         </section>
-
-        <!-- ===================================================================
-             SECTION 2: LIVE SOC DASHBOARD (PROTECTED/INTERACTIVE PLATFORM)
-             =================================================================== -->
-        <div class="soc-dashboard-container hidden" id="soc-dashboard">
-            <!-- Central View Switcher Tabs -->
-            <div style="padding: 0.5rem 1.5rem 0; max-width: 1750px; margin: 0 auto; width: 100%;">
-                <nav class="nav-tabs">
-                    <button class="nav-tab active" data-tab="radar">
-                        <i class="fa-solid fa-satellite-dish"></i>
-                        <span>Threat Radar</span>
-                    </button>
-                    <button class="nav-tab" data-tab="ingest">
-                        <i class="fa-solid fa-vial-virus"></i>
-                        <span>Ingestion Lab</span>
-                    </button>
-                    <button class="nav-tab" data-tab="mailboxes">
-                        <i class="fa-solid fa-inbox"></i>
-                        <span>Live Mailboxes</span>
-                        <span class="tab-badge" id="tab-mailbox-count">0</span>
-                    </button>
-                    <button class="nav-tab" data-tab="feed">
-                        <i class="fa-solid fa-database"></i>
-                        <span>Forensic Feed</span>
-                        <span class="tab-badge" id="tab-feed-count">0</span>
-                    </button>
-                    <button class="nav-tab" data-tab="graph">
-                        <i class="fa-solid fa-diagram-project"></i>
-                        <span>Campaign Graph</span>
-                    </button>
-                    <button class="nav-tab" data-tab="analytics">
-                        <i class="fa-solid fa-chart-pie"></i>
-                        <span>Threat Matrix</span>
-                    </button>
-                </nav>
-            </div>
-
-            <!-- Threat Telemetry Stats Bar -->
-            <section class="telemetry-bar">
-                <div class="telemetry-card card-total">
-                    <div class="telemetry-header">
-                        <span class="telemetry-title">Total Ingested Events</span>
-                        <div class="telemetry-icon"><i class="fa-solid fa-inbox"></i></div>
-                    </div>
-                    <div class="telemetry-body">
-                        <span class="telemetry-value" id="stat-total">0</span>
-                        <span class="telemetry-sub"><i class="fa-solid fa-arrow-trend-up"></i> Real-time MySQL Feed</span>
-                    </div>
-                </div>
-
-                <div class="telemetry-card card-critical">
-                    <div class="telemetry-header">
-                        <span class="telemetry-title">Critical / BEC Threats</span>
-                        <div class="telemetry-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
-                    </div>
-                    <div class="telemetry-body">
-                        <span class="telemetry-value" id="stat-critical">0</span>
-                        <span class="telemetry-sub threat-alert" id="stat-critical-pct">0% of total payload</span>
-                    </div>
-                </div>
-
-                <div class="telemetry-card card-suspicious">
-                    <div class="telemetry-header">
-                        <span class="telemetry-title">Suspicious Anomalies</span>
-                        <div class="telemetry-icon"><i class="fa-solid fa-shield-virus"></i></div>
-                    </div>
-                    <div class="telemetry-body">
-                        <span class="telemetry-value" id="stat-suspicious">0</span>
-                        <span class="telemetry-sub" id="stat-suspicious-pct">Medium scrutiny level</span>
-                    </div>
-                </div>
-
-                <div class="telemetry-card card-benign">
-                    <div class="telemetry-header">
-                        <span class="telemetry-title">Cryptographically Valid</span>
-                        <div class="telemetry-icon"><i class="fa-solid fa-circle-check"></i></div>
-                    </div>
-                    <div class="telemetry-body">
-                        <span class="telemetry-value" id="stat-benign">0</span>
-                        <span class="telemetry-sub safe-alert"><i class="fa-solid fa-lock"></i> SPF/DKIM Verified</span>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Main Tab Content Views -->
-            <main class="main-content">
-                <!-- TAB 1: THREAT RADAR & MAP -->
-                <section class="tab-pane active" id="pane-radar">
-                    <div class="radar-grid">
-                        <!-- Left: Interactive World Threat Map -->
-                        <div class="radar-map-panel card">
-                            <div class="panel-header">
-                                <div class="panel-title-cluster">
-                                    <h3><i class="fa-solid fa-earth-americas"></i> Global Threat Geolocation Radar</h3>
-                                    <span class="panel-subtitle">Interactive geographical origins extracted from RFC 822 mail relay hops</span>
-                                </div>
-                                <div class="radar-controls">
-                                    <div class="radar-legend">
-                                        <span class="legend-pill pill-red"><span class="dot"></span> Critical Threat</span>
-                                        <span class="legend-pill pill-amber"><span class="dot"></span> Suspicious</span>
-                                        <span class="legend-pill pill-green"><span class="dot"></span> Validated</span>
-                                    </div>
-                                    <button class="btn-icon" id="btn-reset-map-zoom" title="Reset View"><i class="fa-solid fa-expand"></i></button>
-                                </div>
-                            </div>
-                            <div id="radar-map" class="map-view"></div>
-                        </div>
-
-                        <!-- Right: Live Threat Alert Stream -->
-                        <div class="radar-stream-panel card">
-                            <div class="panel-header">
-                                <div class="panel-title-cluster">
-                                    <h3><i class="fa-solid fa-tower-broadcast"></i> Live Threat Stream</h3>
-                                    <span class="panel-subtitle">Real-time incident event log</span>
-                                </div>
-                                <button class="btn-icon" id="btn-refresh-stream" title="Refresh Stream"><i class="fa-solid fa-rotate"></i></button>
-                            </div>
-                            <div class="stream-feed-list" id="stream-feed-list">
-                                <div class="stream-empty">Loading live telemetry stream...</div>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- TAB 2: THREAT INGESTION LAB -->
-                <section class="tab-pane" id="pane-ingest">
-                    <div class="ingest-grid">
-                        <!-- Left: Form Input -->
-                        <div class="ingest-form-card card">
-                            <div class="panel-header">
-                                <div class="panel-title-cluster">
-                                    <h3><i class="fa-solid fa-envelope-open-text"></i> Email Forensic Ingestion Terminal</h3>
-                                    <span class="panel-subtitle">Ingest raw RFC 822 email payload or upload .eml files directly</span>
-                                </div>
-                            </div>
-
-                            <!-- EML File Drag and Drop Zone -->
-                            <div class="eml-dropzone" id="eml-dropzone">
-                                <input type="file" id="eml-file-input" accept=".eml,.msg,.txt" style="display: none;">
-                                <div class="dropzone-inner">
-                                    <i class="fa-solid fa-cloud-arrow-up dropzone-icon"></i>
-                                    <span class="dropzone-text">Drag & drop raw <strong>.EML file</strong> here, or <button type="button" class="btn-link" id="btn-browse-eml">Browse from device</button></span>
-                                    <span class="dropzone-sub">Supports RFC 822 MIME standard files</span>
-                                </div>
-                            </div>
-
-                            <form id="ingest-form" class="cyber-form">
-                                <div class="form-row-2">
-                                    <div class="form-field">
-                                        <label for="sender"><i class="fa-solid fa-at"></i> Sender Envelope Address <span class="req">*</span></label>
-                                        <input type="email" id="sender" name="sender" placeholder="e.g. security-dept@paypal-verify-user-account.com" required>
-                                    </div>
-                                    <div class="form-field">
-                                        <label for="subject"><i class="fa-solid fa-heading"></i> Subject Line <span class="req">*</span></label>
-                                        <input type="text" id="subject" name="subject" placeholder="e.g. URGENT ACTION REQUIRED: Account Suspension Notice" required>
-                                    </div>
-                                </div>
-
-                                <div class="form-field">
-                                    <div class="field-header-row">
-                                        <label for="raw-headers"><i class="fa-solid fa-code"></i> Raw RFC 822 Network Headers <span class="opt">(Includes Received: relay chain & SPF/DKIM)</span></label>
-                                    </div>
-                                    <textarea id="raw-headers" name="raw-headers" rows="4" placeholder="From: security-dept@paypal-verify-user-account.com&#10;To: target@victim-corp.com&#10;Received: from unknown (185.220.101.5) by mx.relay.net&#10;Authentication-Results: mx.relay.net; spf=fail; dkim=fail; dmarc=fail"></textarea>
-                                </div>
-
-                                <div class="form-field">
-                                    <label for="body-text"><i class="fa-solid fa-align-left"></i> Email Body Content <span class="req">*</span></label>
-                                    <textarea id="body-text" name="body-text" rows="5" placeholder="Paste the plain text or HTML message body..." required></textarea>
-                                </div>
-
-                                <div class="form-submit-row">
-                                    <button type="submit" class="btn btn-cyber-primary" id="btn-submit-ingest">
-                                        <i class="fa-solid fa-microscope"></i>
-                                        <span>Execute Threat Forensic Pipeline</span>
-                                        <span class="spinner hidden" id="ingest-spinner"></span>
-                                    </button>
-                                    <button type="reset" class="btn btn-cyber-secondary" id="btn-clear-form">
-                                        <i class="fa-solid fa-trash-can"></i> Clear
-                                    </button>
-                                </div>
-
-                                <div id="ingest-alert" class="alert-box hidden"></div>
-                            </form>
-                        </div>
-
-                        <!-- Right: Quick Scenario Testbench Cards -->
-                        <div class="ingest-scenarios-card card">
-                            <div class="panel-header">
-                                <div class="panel-title-cluster">
-                                    <h3><i class="fa-solid fa-flask"></i> Quick Threat Scenarios Testbench</h3>
-                                    <span class="panel-subtitle">Click any attack vector to load and analyze instantly</span>
-                                </div>
-                            </div>
-
-                            <div class="scenario-cards-list">
-                                <!-- Scenario 1: PayPal Phish -->
-                                <div class="scenario-card card-threat-high" data-scenario="paypal">
-                                    <div class="scenario-badge-row">
-                                        <span class="badge-risk-pill high">🔴 Phishing & Credential Harvest</span>
-                                        <span class="scenario-geo"><i class="fa-solid fa-location-dot"></i> Moscow, Russia</span>
-                                    </div>
-                                    <h4 class="scenario-title">PayPal Account Freeze Credential Lure</h4>
-                                    <p class="scenario-desc">Spoofed sender, urgent 24h deadline, typosquat domain URL, failed SPF/DKIM.</p>
-                                    <button class="btn btn-sm btn-cyber-secondary scenario-trigger-btn"><i class="fa-solid fa-play"></i> Load Scenario</button>
-                                </div>
-
-                                <!-- Scenario 2: CEO Wire BEC -->
-                                <div class="scenario-card card-threat-high" data-scenario="ceo_bec">
-                                    <div class="scenario-badge-row">
-                                        <span class="badge-risk-pill high">🔴 CEO Fraud / BEC Wire Scam</span>
-                                        <span class="scenario-geo"><i class="fa-solid fa-location-dot"></i> Frankfurt, Germany</span>
-                                    </div>
-                                    <h4 class="scenario-title">Executive Confidential Wire Transfer</h4>
-                                    <p class="scenario-desc">Spoofed executive sender with mismatch Reply-To address targeting finance team.</p>
-                                    <button class="btn btn-sm btn-cyber-secondary scenario-trigger-btn"><i class="fa-solid fa-play"></i> Load Scenario</button>
-                                </div>
-
-                                <!-- Scenario 3: M365 MFA Fatigue -->
-                                <div class="scenario-card card-threat-high" data-scenario="m365">
-                                    <div class="scenario-badge-row">
-                                        <span class="badge-risk-pill high">🔴 Account Takeover / M365</span>
-                                        <span class="scenario-geo"><i class="fa-solid fa-location-dot"></i> Lagos, Nigeria</span>
-                                    </div>
-                                    <h4 class="scenario-title">Microsoft 365 Session Revocation</h4>
-                                    <p class="scenario-desc">Fake corporate SSO login lure from untrusted relay IP.</p>
-                                    <button class="btn btn-sm btn-cyber-secondary scenario-trigger-btn"><i class="fa-solid fa-play"></i> Load Scenario</button>
-                                </div>
-
-                                <!-- Scenario 4: Amazon Parcel Scam -->
-                                <div class="scenario-card card-threat-med" data-scenario="amazon">
-                                    <div class="scenario-badge-row">
-                                        <span class="badge-risk-pill medium">🟡 Social Engineering</span>
-                                        <span class="scenario-geo"><i class="fa-solid fa-location-dot"></i> Amsterdam, Netherlands</span>
-                                    </div>
-                                    <h4 class="scenario-title">Amazon Logistics Parcel Re-route</h4>
-                                    <p class="scenario-desc">Fake delivery rescheduling link asking for billing and address update.</p>
-                                    <button class="btn btn-sm btn-cyber-secondary scenario-trigger-btn"><i class="fa-solid fa-play"></i> Load Scenario</button>
-                                </div>
-
-                                <!-- Scenario 5: Legitimate GitHub Advisory -->
-                                <div class="scenario-card card-threat-low" data-scenario="github_safe">
-                                    <div class="scenario-badge-row">
-                                        <span class="badge-risk-pill low">🟢 Verified Benign / Low Risk</span>
-                                        <span class="scenario-geo"><i class="fa-solid fa-location-dot"></i> San Francisco, USA</span>
-                                    </div>
-                                    <h4 class="scenario-title">GitHub Security Advisory Alert</h4>
-                                    <p class="scenario-desc">Fully authenticated SPF/DKIM/DMARC passing from legitimate GitHub relays.</p>
-                                    <button class="btn btn-sm btn-cyber-secondary scenario-trigger-btn"><i class="fa-solid fa-play"></i> Load Scenario</button>
-                                </div>
-                            </div>
-
-                            <!-- Automated Gateway Integrations Mini-Panel -->
-                            <div class="gateway-integrations-panel">
-                                <div class="gateway-integrations-title">
-                                    <i class="fa-solid fa-robot" style="color: var(--primary);"></i> Live Automated Ingestion Pipelines
-                                </div>
-                                <div class="gateway-integrations-list">
-                                    <div class="gateway-integration-item">
-                                        <span><i class="fa-solid fa-webhook" style="color: var(--primary);"></i> <strong>REST Webhook:</strong> <code>/api/v1/webhook/inbound</code></span>
-                                        <button class="btn btn-sm btn-cyber-secondary" id="btn-copy-webhook" title="Copy Inbound Webhook URL"><i class="fa-solid fa-copy"></i> Copy URL</button>
-                                    </div>
-                                    <div class="gateway-integration-item">
-                                        <span><i class="fa-solid fa-folder-tree" style="color: var(--threat-low);"></i> <strong>Folder Watcher:</strong> <code>backend/inbound_emails/</code></span>
-                                        <button class="btn btn-sm btn-cyber-secondary" id="btn-scan-folder" title="Scan dropped .eml files"><i class="fa-solid fa-sync"></i> Scan Folder</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- TAB 3: LIVE CONNECTED MAILBOXES -->
-                <section class="tab-pane" id="pane-mailboxes">
-                    <div class="card mailboxes-card-container">
-                        <div class="panel-header">
-                            <div class="panel-title-cluster">
-                                <h3><i class="fa-solid fa-inbox"></i> Continuous Live Mailbox Threat Monitoring</h3>
-                                <span class="panel-subtitle">Connected Gmail, Outlook, and IMAP accounts automatically parsed and analyzed in real-time</span>
-                            </div>
-                            <div style="display: flex; gap: 0.65rem; flex-wrap: wrap;">
-                                <button class="btn btn-cyber-primary btn-sm" id="btn-add-mailbox-tab"><i class="fa-solid fa-plus"></i> Connect New Account</button>
-                                <button class="btn-icon" id="btn-refresh-mailboxes" title="Refresh Mailbox List"><i class="fa-solid fa-rotate"></i></button>
-                            </div>
-                        </div>
-
-                        <div class="mailboxes-body-padding">
-                            <div class="mailboxes-grid-list" id="mailboxes-grid-list">
-                                <!-- Injected via JavaScript -->
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- TAB 4: FORENSIC FEED & AUDIT LOG -->
-                <section class="tab-pane" id="pane-feed">
-                    <div class="feed-panel card">
-                        <div class="panel-header">
-                            <div class="panel-title-cluster">
-                                <h3><i class="fa-solid fa-table-list"></i> Comprehensive Threat Forensic Audit Feed</h3>
-                                <span class="panel-subtitle">Relational database records with SHA-256 evidence chain of custody and cryptographic signatures</span>
-                            </div>
-                            <div class="feed-filter-bar">
-                                <div class="search-input-box">
-                                    <i class="fa-solid fa-magnifying-glass"></i>
-                                    <input type="text" id="feed-search" placeholder="Search by sender, subject, or country...">
-                                </div>
-                                <div class="filter-chips">
-                                    <button class="filter-chip active" data-filter="all">All (<span id="count-all">0</span>)</button>
-                                    <button class="filter-chip chip-high" data-filter="high">🔴 High (<span id="count-high">0</span>)</button>
-                                    <button class="filter-chip chip-med" data-filter="medium">🟡 Medium (<span id="count-med">0</span>)</button>
-                                    <button class="filter-chip chip-low" data-filter="low">🟢 Low (<span id="count-low">0</span>)</button>
-                                </div>
-                                <button class="btn-icon" id="btn-refresh-feed" title="Refresh Feed"><i class="fa-solid fa-rotate"></i></button>
-                            </div>
-                        </div>
-
-                        <div class="table-responsive">
-                            <table class="cyber-table" id="threat-feed-table">
-                                <thead>
-                                    <tr>
-                                        <th style="width: 55px;">Case</th>
-                                        <th style="width: 140px;">Risk Level</th>
-                                        <th>Sender Envelope</th>
-                                        <th>Subject Line</th>
-                                        <th style="width: 180px;">Origin & ASN</th>
-                                        <th style="width: 120px; text-align: center;">Signatures</th>
-                                        <th style="width: 160px; text-align: center;">Forensic Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="feed-tbody">
-                                    <tr>
-                                        <td colspan="7" class="empty-state">Loading threat feed records...</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- TAB 5: CAMPAIGN ATTRIBUTION & CORRELATION GRAPH -->
-                <section class="tab-pane" id="pane-graph">
-                    <div class="graph-panel card">
-                        <div class="panel-header">
-                            <div class="panel-title-cluster">
-                                <h3><i class="fa-solid fa-diagram-project"></i> Threat Campaign & Identity Attribution Graph</h3>
-                                <span class="panel-subtitle">Graph correlation clustering emails sharing common relay IPs, ASN infrastructure, and domain patterns</span>
-                            </div>
-                            <div class="graph-legend">
-                                <span class="legend-pill pill-red"><span class="dot"></span> Case Node</span>
-                                <span class="legend-pill pill-amber"><span class="dot"></span> Domain Node</span>
-                                <span class="legend-pill pill-green"><span class="dot"></span> Relay IP Node</span>
-                                <button class="btn-icon" id="btn-refresh-graph" title="Rebuild Graph"><i class="fa-solid fa-rotate"></i></button>
-                            </div>
-                        </div>
-                        <div class="graph-canvas-container" id="graph-canvas-container">
-                            <canvas id="campaign-graph-canvas"></canvas>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- TAB 6: THREAT MATRIX & ANALYTICS -->
-                <section class="tab-pane" id="pane-analytics">
-                    <div class="analytics-grid">
-                        <!-- Phishing Attack Vectors Card -->
-                        <div class="analytics-card card">
-                            <div class="panel-header">
-                                <div class="panel-title-cluster">
-                                    <h3><i class="fa-solid fa-crosshairs"></i> Phishing & Attack Vectors Distribution</h3>
-                                    <span class="panel-subtitle">Identified social engineering heuristics</span>
-                                </div>
-                            </div>
-                            <div class="vector-progress-list" id="vector-distribution-list">
-                                <div class="progress-item">
-                                    <div class="progress-labels">
-                                        <span>Credential Harvesting Lures</span>
-                                        <span class="progress-val" id="vec-cred">75%</span>
-                                    </div>
-                                    <div class="progress-track"><div class="progress-fill fill-red" style="width: 75%;"></div></div>
-                                </div>
-                                <div class="progress-item">
-                                    <div class="progress-labels">
-                                        <span>Urgency / Panic Language</span>
-                                        <span class="progress-val" id="vec-urgency">65%</span>
-                                    </div>
-                                    <div class="progress-track"><div class="progress-fill fill-amber" style="width: 65%;"></div></div>
-                                </div>
-                                <div class="progress-item">
-                                    <div class="progress-labels">
-                                        <span>Deceptive Lookalike Domain Typosquatting</span>
-                                        <span class="progress-val" id="vec-typo">50%</span>
-                                    </div>
-                                    <div class="progress-track"><div class="progress-fill fill-red" style="width: 50%;"></div></div>
-                                </div>
-                                <div class="progress-item">
-                                    <div class="progress-labels">
-                                        <span>Financial & Wire Transfer BEC</span>
-                                        <span class="progress-val" id="vec-fin">35%</span>
-                                    </div>
-                                    <div class="progress-track"><div class="progress-fill fill-purple" style="width: 35%;"></div></div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Top Origin Threat Countries -->
-                        <div class="analytics-card card">
-                            <div class="panel-header">
-                                <div class="panel-title-cluster">
-                                    <h3><i class="fa-solid fa-globe"></i> Top Threat Origin Geographies</h3>
-                                    <span class="panel-subtitle">Resolved mail relay origins</span>
-                                </div>
-                            </div>
-                            <div class="country-rank-list" id="country-rank-list">
-                                <!-- Populated dynamically via JS -->
-                            </div>
-                        </div>
-
-                        <!-- Authentication Compliance Matrix -->
-                        <div class="analytics-card card card-full-span">
-                            <div class="panel-header">
-                                <div class="panel-title-cluster">
-                                    <h3><i class="fa-solid fa-key"></i> Cryptographic Email Authentication Compliance</h3>
-                                    <span class="panel-subtitle">Protocol validation distribution across all ingested payloads</span>
-                                </div>
-                            </div>
-                            <div class="auth-matrix-grid">
-                                <div class="auth-stat-box">
-                                    <div class="auth-stat-name"><i class="fa-solid fa-fingerprint"></i> SPF Validation</div>
-                                    <div class="auth-stat-nums">
-                                        <span class="pass-count" id="spf-pass-count">0 Pass</span>
-                                        <span class="fail-count" id="spf-fail-count">0 Fail</span>
-                                    </div>
-                                    <div class="auth-meter"><div class="auth-meter-fill fill-green" id="spf-meter" style="width: 50%;"></div></div>
-                                </div>
-
-                                <div class="auth-stat-box">
-                                    <div class="auth-stat-name"><i class="fa-solid fa-signature"></i> DKIM Digital Signatures</div>
-                                    <div class="auth-stat-nums">
-                                        <span class="pass-count" id="dkim-pass-count">0 Pass</span>
-                                        <span class="fail-count" id="dkim-fail-count">0 Fail</span>
-                                    </div>
-                                    <div class="auth-meter"><div class="auth-meter-fill fill-green" id="dkim-meter" style="width: 50%;"></div></div>
-                                </div>
-
-                                <div class="auth-stat-box">
-                                    <div class="auth-stat-name"><i class="fa-solid fa-shield-halved"></i> DMARC Domain Alignment</div>
-                                    <div class="auth-stat-nums">
-                                        <span class="pass-count" id="dmarc-pass-count">0 Pass</span>
-                                        <span class="fail-count" id="dmarc-fail-count">0 Fail</span>
-                                    </div>
-                                    <div class="auth-meter"><div class="auth-meter-fill fill-green" id="dmarc-meter" style="width: 50%;"></div></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-            </main>
-        </div>
 
         <!-- Global SOC Footer -->
         <footer style="margin-top: auto; padding: 1rem 1.75rem; border-top: 1px solid var(--border-subtle); background: var(--bg-nav); display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; color: var(--text-muted); flex-wrap: wrap; gap: 0.75rem;">
@@ -800,226 +305,55 @@
         </footer>
     </div>
 
-    <!-- ===================================================================
-         AUTHENTICATION MODAL (SIGN IN / CREATE ACCOUNT)
-         =================================================================== -->
-    <div class="modal-overlay hidden" id="auth-modal">
-        <div class="modal-backdrop" id="auth-modal-backdrop"></div>
-        <div class="modal-dialog auth-modal-dialog" style="max-width: 460px;">
-            <div class="modal-header-cyber">
-                <div class="modal-title-cluster">
-                    <div class="modal-icon-badge"><i class="fa-solid fa-shield-halved"></i></div>
-                    <div>
-                        <h3 id="auth-modal-title">SOC Analyst Authentication</h3>
-                        <span class="modal-subtitle">Access threat radar, ingestion & forensics</span>
-                    </div>
-                </div>
-                <button class="btn-close-modal" id="btn-close-auth-modal">&times;</button>
-            </div>
-            <div style="padding: 1.5rem;">
-                <!-- 1-Click Quick Demo Login Banner -->
-                <div class="auth-demo-banner" id="btn-modal-demo-login">
-                    <div style="display: flex; align-items: center; gap: 0.65rem;">
-                        <i class="fa-solid fa-bolt" style="color: #fbbf24; font-size: 1.25rem;"></i>
-                        <div style="text-align: left;">
-                            <div style="font-weight: 700; font-size: 0.85rem; color: #fff;">1-Click Demo Analyst Login</div>
-                            <div style="font-size: 0.72rem; color: var(--text-muted);">Instantly test platform as admin@bytetrail.io</div>
-                        </div>
-                    </div>
-                    <span class="badge-risk-pill low" style="margin-left: auto;">Instant</span>
-                </div>
-
-                <div style="display: flex; align-items: center; gap: 0.75rem; margin: 1.15rem 0;">
-                    <div style="flex: 1; height: 1px; background: var(--border-subtle);"></div>
-                    <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-family: var(--font-mono); letter-spacing: 0.04em;">OR Sign In With Email</span>
-                    <div style="flex: 1; height: 1px; background: var(--border-subtle);"></div>
-                </div>
-
-                <!-- Auth Mode Tabs (Sign In / Register) -->
-                <div class="auth-tabs-row">
-                    <button class="auth-tab-btn active" id="tab-btn-signin">Sign In</button>
-                    <button class="auth-tab-btn" id="tab-btn-signup">Create Account</button>
-                </div>
-
-                <!-- Form: Sign In -->
-                <form id="form-signin" class="auth-form">
-                    <div class="form-field">
-                        <label for="signin-email">Email Address <span class="req">*</span></label>
-                        <input type="email" id="signin-email" placeholder="e.g. analyst@company.com" required autocomplete="username">
-                    </div>
-                    <div class="form-field">
-                        <label for="signin-password">Password <span class="req">*</span></label>
-                        <input type="password" id="signin-password" placeholder="Enter your password" required autocomplete="current-password">
-                    </div>
-                    <div id="signin-error" class="hidden alert-box-auth"></div>
-                    <button type="submit" class="btn btn-cyber-primary" id="btn-submit-signin" style="width: 100%; justify-content: center; margin-top: 0.35rem;">
-                        <i class="fa-solid fa-right-to-bracket"></i>
-                        <span>Authenticate & Enter SOC</span>
-                        <span class="spinner hidden" id="signin-spinner"></span>
-                    </button>
-                </form>
-
-                <!-- Form: Sign Up -->
-                <form id="form-signup" class="auth-form hidden">
-                    <div class="form-field">
-                        <label for="signup-name">Full Name <span class="req">*</span></label>
-                        <input type="text" id="signup-name" placeholder="e.g. Alex Mercer" required>
-                    </div>
-                    <div class="form-field">
-                        <label for="signup-email">Corporate / Analyst Email <span class="req">*</span></label>
-                        <input type="email" id="signup-email" placeholder="e.g. alex@company.com" required autocomplete="username">
-                    </div>
-                    <div class="form-field">
-                        <label for="signup-password">Password <span class="req">*</span></label>
-                        <input type="password" id="signup-password" placeholder="Min 6 characters" required autocomplete="new-password">
-                    </div>
-                    <div class="form-field">
-                        <label for="signup-role">Analyst Role</label>
-                        <select id="signup-role" style="background: var(--bg-input); border: 1px solid var(--border-subtle); border-radius: 0.45rem; padding: 0.65rem; color: var(--text-primary); font-size: 0.85rem;">
-                            <option value="analyst">SOC Security Analyst</option>
-                            <option value="admin">SOC Lead / Incident Manager</option>
-                            <option value="viewer">Compliance Auditor / Viewer</option>
-                        </select>
-                    </div>
-                    <div id="signup-error" class="hidden alert-box-auth"></div>
-                    <button type="submit" class="btn btn-cyber-primary" id="btn-submit-signup" style="width: 100%; justify-content: center; margin-top: 0.35rem;">
-                        <i class="fa-solid fa-user-plus"></i>
-                        <span>Register SOC Account</span>
-                        <span class="spinner hidden" id="signup-spinner"></span>
-                    </button>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Connect Mailbox Modal -->
-    <div class="modal-overlay hidden" id="connect-mailbox-modal">
-        <div class="modal-backdrop" id="connect-modal-backdrop"></div>
-        <div class="modal-dialog" style="max-width: 540px;">
-            <div class="modal-header-cyber">
-                <div class="modal-title-cluster">
-                    <div class="modal-icon-badge"><i class="fa-solid fa-plug"></i></div>
-                    <div>
-                        <h3>Connect Email Account</h3>
-                        <span class="modal-subtitle">Auto-monitor and detect fraud on any live inbox</span>
-                    </div>
-                </div>
-                <button class="btn-close-modal" id="btn-close-connect-modal">&times;</button>
-            </div>
-            <div style="padding: 1.5rem;">
-                <!-- Direct Google OAuth 2.0 Section -->
-                <div style="background: rgba(37, 99, 235, 0.08); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 0.5rem; padding: 1rem; margin-bottom: 1.25rem; text-align: center;">
-                    <h4 style="font-size: 0.88rem; color: var(--text-bright); margin-bottom: 0.3rem; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 0.4rem;">
-                        <i class="fa-brands fa-google" style="color: #60a5fa;"></i> Direct Google OAuth 2.0 Login
-                    </h4>
-                    <p style="font-size: 0.74rem; color: var(--text-muted); margin-bottom: 0.85rem;">
-                        Connect your live Gmail inbox via official Google OAuth 2.0
-                    </p>
-                    <button type="button" class="btn btn-cyber-primary" id="btn-google-oauth-login" style="width: 100%; justify-content: center; gap: 0.5rem; background: #2563eb; font-weight: 600;">
-                        <i class="fa-brands fa-google"></i>
-                        <span>Sign in with Google</span>
-                        <span class="spinner hidden" id="google-oauth-spinner"></span>
-                    </button>
-                    <div style="margin-top: 0.6rem; font-size: 0.7rem; color: var(--text-muted);">
-                        By continuing, you agree to ByteTrail's <a href="privacy.html" target="_blank" style="color: #60a5fa; text-decoration: underline;">Privacy Policy</a> & <a href="terms.html" target="_blank" style="color: #60a5fa; text-decoration: underline;">Terms of Service</a>.
-                    </div>
-                </div>
-
-                <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem;">
-                    <div style="flex: 1; height: 1px; background: var(--border-subtle);"></div>
-                    <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-family: var(--font-mono); letter-spacing: 0.04em;">OR Connect via IMAP / App Password</span>
-                    <div style="flex: 1; height: 1px; background: var(--border-subtle);"></div>
-                </div>
-
-                <form id="connect-mailbox-form" style="display: flex; flex-direction: column; gap: 1rem;">
-                    <div class="form-field">
-                        <label for="mb-provider">Email Provider</label>
-                        <select id="mb-provider" style="background: var(--bg-input); border: 1px solid var(--border-subtle); border-radius: 0.45rem; padding: 0.65rem; color: var(--text-primary); font-size: 0.85rem;">
-                            <option value="gmail">Google Gmail / Google Workspace (IMAP)</option>
-                            <option value="outlook">Microsoft Outlook / Office 365</option>
-                            <option value="yahoo">Yahoo Mail</option>
-                            <option value="icloud">Apple iCloud Mail</option>
-                            <option value="custom">Custom Corporate IMAP Server</option>
-                        </select>
-                    </div>
-
-                    <div class="form-field">
-                        <label for="mb-email">Email Address <span class="req">*</span></label>
-                        <input type="email" id="mb-email" placeholder="e.g. security-alerts@gmail.com" required>
-                    </div>
-
-                    <div class="form-field">
-                        <label for="mb-password">Password / App Password <span class="req">*</span></label>
-                        <input type="password" id="mb-password" placeholder="Enter password or 16-character App Password" required>
-                        <span style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem;" id="mb-instructions">For Gmail: Use a 16-character Google App Password (myaccount.google.com/apppasswords)</span>
-                    </div>
-
-                    <div id="custom-imap-fields" class="hidden" style="display: flex; flex-direction: column; gap: 0.75rem;">
-                        <div class="form-row-2">
-                            <div class="form-field">
-                                <label for="mb-host">IMAP Server Host</label>
-                                <input type="text" id="mb-host" placeholder="e.g. mail.yourcorp.com">
-                            </div>
-                            <div class="form-field">
-                                <label for="mb-port">IMAP Port</label>
-                                <input type="number" id="mb-port" value="993">
-                            </div>
-                        </div>
-                        <div class="form-field">
-                            <label for="mb-folder">Mailbox Folder</label>
-                            <input type="text" id="mb-folder" value="INBOX">
-                        </div>
-                    </div>
-
-                    <div id="connect-mb-error" class="hidden" style="background: var(--threat-high-bg); border: 1px solid var(--threat-high-border); color: #f87171; font-size: 0.78rem; padding: 0.75rem; border-radius: 0.45rem; line-height: 1.4;"></div>
-
-                    <div style="display: flex; gap: 0.75rem; margin-top: 0.5rem;">
-                        <button type="submit" class="btn btn-cyber-primary" id="btn-submit-connect-mb" style="flex: 1;">
-                            <i class="fa-solid fa-link"></i>
-                            <span>Test & Connect Mailbox</span>
-                            <span class="spinner hidden" id="connect-mb-spinner"></span>
-                        </button>
-                        <button type="button" class="btn btn-cyber-secondary" id="btn-cancel-connect-mb">Cancel</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Forensic Deep Inspection Modal -->
-    <div class="modal-overlay hidden" id="forensic-modal">
-        <div class="modal-backdrop" id="modal-backdrop"></div>
-        <div class="modal-dialog">
-            <div class="modal-header-cyber">
-                <div class="modal-title-cluster">
-                    <div class="modal-icon-badge"><i class="fa-solid fa-microscope"></i></div>
-                    <div>
-                        <h3 id="modal-title">Forensic Threat Incident Report</h3>
-                        <span class="modal-subtitle" id="modal-case-subtitle">Case # — Ingested on ...</span>
-                    </div>
-                </div>
-                <div class="modal-action-row">
-                    <button class="btn btn-cyber-primary btn-sm" id="modal-dl-pdf-btn">
-                        <i class="fa-solid fa-file-pdf"></i>
-                        <span>Download Official Forensic PDF</span>
-                    </button>
-                    <button class="btn-close-modal" id="btn-close-modal">&times;</button>
-                </div>
-            </div>
-
-            <div class="modal-body-cyber" id="modal-body-content">
-                <!-- Injected via JavaScript -->
-            </div>
-        </div>
-    </div>
-
-    <!-- Toast Notification Container -->
+    <!-- Toast Container -->
     <div class="toast-container" id="toast-container"></div>
 
-    <!-- Leaflet.js JS -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-    <!-- Cloud Configuration & App Logic -->
     <script src="config.js"></script>
-    <script src="app.js"></script>
+    <script src="auth.js"></script>
+    <script>
+        // Update navbar CTA if already logged in
+        const token = getAuthToken();
+        const user = getAuthUser();
+        if (token && user) {
+            const ctaBtn = document.getElementById("btn-landing-main-cta");
+            const ctaLabel = document.getElementById("label-landing-cta");
+            if (ctaBtn) {
+                ctaBtn.href = "dashboard.html";
+                ctaBtn.className = "btn btn-cyber-primary btn-sm";
+            }
+            if (ctaLabel) {
+                ctaLabel.textContent = `Console (${user.full_name.split(" ")[0]})`;
+            }
+        }
+
+        // Demo Login Click
+        const handleDemoClick = async () => {
+            showToast("⚡ Authenticating as Senior SOC Analyst...", "info");
+            try {
+                const data = await executeDemoLogin();
+                showToast(`🚀 Authenticated as ${data.user.full_name}! Redirecting...`, "success");
+                setTimeout(() => window.location.href = "dashboard.html", 500);
+            } catch (err) {
+                showToast(`❌ Demo login error: ${err.message}`, "error");
+            }
+        };
+
+        document.getElementById("btn-landing-demo-login")?.addEventListener("click", handleDemoClick);
+        document.getElementById("btn-hero-quick-demo")?.addEventListener("click", handleDemoClick);
+
+        function showToast(msg, type = "info") {
+            const container = document.getElementById("toast-container");
+            if (!container) return;
+            const toast = document.createElement("div");
+            toast.className = `toast-msg toast-${type}`;
+            toast.innerHTML = msg;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = "0";
+                toast.style.transform = "translateY(10px)";
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+    </script>
 </body>
 </html>
