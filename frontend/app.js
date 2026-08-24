@@ -200,6 +200,9 @@ function renderAuthUI() {
         if (displayName) displayName.textContent = user.full_name || user.email.split("@")[0];
         if (displayRole) displayRole.textContent = (user.role || "Analyst").toUpperCase();
 
+        const greetingName = document.getElementById("greeting-user-name");
+        if (greetingName) greetingName.textContent = user.full_name ? user.full_name.split(" ")[0] : "Analyst";
+
         if (avatarInitials) {
             const names = (user.full_name || user.email).trim().split(" ");
             let initials = names[0][0];
@@ -459,6 +462,32 @@ function initEventListeners() {
     // User Logout
     const btnUserLogout = document.getElementById("btn-user-logout");
     if (btnUserLogout) btnUserLogout.addEventListener("click", clearAuthSession);
+
+    // Quick Detection Action Strip Buttons
+    const btnQuickScan = document.getElementById("btn-quick-scan-email");
+    if (btnQuickScan) {
+        btnQuickScan.addEventListener("click", () => {
+            const ingestTab = document.querySelector(`.nav-tab[data-tab="ingest"]`);
+            if (ingestTab) ingestTab.click();
+            document.getElementById("sender")?.focus();
+        });
+    }
+
+    const btnQuickConnect = document.getElementById("btn-quick-connect-inbox");
+    if (btnQuickConnect) {
+        btnQuickConnect.addEventListener("click", () => {
+            document.getElementById("connect-mailbox-modal")?.classList.remove("hidden");
+        });
+    }
+
+    const btnQuickScenarios = document.getElementById("btn-quick-view-scenarios");
+    if (btnQuickScenarios) {
+        btnQuickScenarios.addEventListener("click", () => {
+            const ingestTab = document.querySelector(`.nav-tab[data-tab="ingest"]`);
+            if (ingestTab) ingestTab.click();
+            document.querySelector(".scenario-card")?.scrollIntoView({ behavior: "smooth" });
+        });
+    }
 
     // Ingestion Form
     const form = document.getElementById("ingest-form");

@@ -2555,4 +2555,59 @@ textarea:focus {
     }
 }
 
+/* ==========================================================================
+   DASHBOARD QUICK DETECTION ACTION STRIP
+   ========================================================================== */
+.quick-action-strip {
+    background: linear-gradient(90deg, rgba(37, 99, 235, 0.12), rgba(139, 92, 246, 0.12));
+    border-bottom: 1px solid var(--border-subtle);
+    padding: 0.65rem 1.75rem;
+}
+
+.quick-action-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.quick-action-greeting {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+}
+
+.quick-action-greeting strong {
+    color: #ffffff;
+}
+
+.quick-action-btns {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+    .quick-action-strip {
+        padding: 0.75rem 1rem;
+    }
+    .quick-action-content {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.65rem;
+    }
+    .quick-action-btns {
+        width: 100%;
+    }
+    .quick-action-btns .btn {
+        flex: 1;
+        justify-content: center;
+    }
+}
+
+
 
