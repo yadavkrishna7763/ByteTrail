@@ -297,16 +297,16 @@
                         </div>
 
                         <!-- Automated Gateway Integrations Mini-Panel -->
-                        <div style="margin-top: 1rem; padding: 1.15rem; background: var(--bg-surface); border-top: 1px solid var(--border-subtle); border-radius: 0 0 0.85rem 0.85rem;">
-                            <div style="font-weight: 700; font-size: 0.82rem; color: var(--text-bright); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.45rem;">
+                        <div class="gateway-integrations-panel">
+                            <div class="gateway-integrations-title">
                                 <i class="fa-solid fa-robot" style="color: var(--primary);"></i> Live Automated Ingestion Pipelines
                             </div>
-                            <div style="display: flex; flex-direction: column; gap: 0.55rem; font-size: 0.76rem;">
-                                <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-surface); padding: 0.45rem 0.75rem; border-radius: 0.35rem; border: 1px solid var(--border-subtle);">
+                            <div class="gateway-integrations-list">
+                                <div class="gateway-integration-item">
                                     <span><i class="fa-solid fa-webhook" style="color: var(--primary);"></i> <strong>REST Webhook:</strong> <code>/api/v1/webhook/inbound</code></span>
                                     <button class="btn btn-sm btn-cyber-secondary" id="btn-copy-webhook" title="Copy Inbound Webhook URL"><i class="fa-solid fa-copy"></i> Copy URL</button>
                                 </div>
-                                <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-surface); padding: 0.45rem 0.75rem; border-radius: 0.35rem; border: 1px solid var(--border-subtle);">
+                                <div class="gateway-integration-item">
                                     <span><i class="fa-solid fa-folder-tree" style="color: var(--threat-low);"></i> <strong>Folder Watcher:</strong> <code>backend/inbound_emails/</code></span>
                                     <button class="btn btn-sm btn-cyber-secondary" id="btn-scan-folder" title="Scan dropped .eml files"><i class="fa-solid fa-sync"></i> Scan Folder</button>
                                 </div>
@@ -318,20 +318,20 @@
 
             <!-- TAB 3: LIVE CONNECTED MAILBOXES -->
             <section class="tab-pane" id="pane-mailboxes">
-                <div class="card" style="min-height: 560px;">
+                <div class="card mailboxes-card-container">
                     <div class="panel-header">
                         <div class="panel-title-cluster">
                             <h3><i class="fa-solid fa-inbox"></i> Continuous Live Mailbox Threat Monitoring</h3>
                             <span class="panel-subtitle">Connected Gmail, Outlook, and IMAP accounts automatically parsed and analyzed in real-time</span>
                         </div>
-                        <div style="display: flex; gap: 0.65rem;">
+                        <div style="display: flex; gap: 0.65rem; flex-wrap: wrap;">
                             <button class="btn btn-cyber-primary btn-sm" id="btn-add-mailbox-tab"><i class="fa-solid fa-plus"></i> Connect New Account</button>
                             <button class="btn-icon" id="btn-refresh-mailboxes" title="Refresh Mailbox List"><i class="fa-solid fa-rotate"></i></button>
                         </div>
                     </div>
 
-                    <div style="padding: 1.5rem;">
-                        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 1.25rem;" id="mailboxes-grid-list">
+                    <div class="mailboxes-body-padding">
+                        <div class="mailboxes-grid-list" id="mailboxes-grid-list">
                             <!-- Injected via JavaScript -->
                         </div>
                     </div>

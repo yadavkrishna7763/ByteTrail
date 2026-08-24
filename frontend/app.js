@@ -117,6 +117,11 @@ function initNavTabs() {
             tabs.forEach(t => t.classList.remove("active"));
             tab.classList.add("active");
 
+            // Scroll tab smoothly into view on mobile
+            try {
+                tab.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+            } catch (err) {}
+
             const targetTab = tab.dataset.tab;
             document.querySelectorAll(".tab-pane").forEach(pane => {
                 pane.classList.remove("active");
@@ -140,6 +145,21 @@ function initNavTabs() {
                 loadConnectedMailboxes();
             }
         });
+    });
+
+    // Window resize handler for responsive map and canvas graphs
+    let resizeTimer;
+    window.addEventListener("resize", () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+            if (radarMap) {
+                radarMap.invalidateSize();
+            }
+            const activeGraphPane = document.getElementById("pane-graph");
+            if (activeGraphPane && activeGraphPane.classList.contains("active")) {
+                loadAndRenderCampaignGraph();
+            }
+        }, 150);
     });
 }
 
