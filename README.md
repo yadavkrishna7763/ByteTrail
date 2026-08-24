@@ -51,7 +51,7 @@ cp backend/.env.example backend/.env
 
 *(Optional: Add your Google Cloud OAuth credentials to `backend/.env` if testing real Google Login, or use standard IMAP/App Passwords).*
 
-### 3. Build and Launch Containers
+### 3. Build and Launch Containers(Make sure that Docker is running/open on your system)
 ```bash
 docker compose build --no-cache
 docker compose up -d
