@@ -867,10 +867,6 @@ async function loadConnectedMailboxes() {
                         <button class="btn btn-sm btn-cyber-secondary" onclick="viewMailboxThreats()" title="Show high-risk emails detected for your account">
                             <i class="fa-solid fa-triangle-exclamation"></i> View Threats
                         </button>
-                        ${isGmail ? `
-                        <button class="btn btn-sm btn-cyber-secondary" onclick="openGmailInbox()" title="Open this Gmail inbox in Google Mail">
-                            <i class="fa-brands fa-google"></i> Open Gmail
-                        </button>` : ""}
                         <button class="btn btn-sm btn-cyber-primary" onclick="deepScanConnectedMailbox(${mb.id})" title="Deep Scan All Historical Read and Unread Emails">
                             <i class="fa-solid fa-magnifying-glass"></i> Deep Scan (Read + Unread)
                         </button>
@@ -888,11 +884,6 @@ async function loadConnectedMailboxes() {
         console.error("Error loading mailboxes:", e);
     }
 }
-
-// Open the connected Google inbox. The user stays signed in to Gmail in their browser.
-window.openGmailInbox = function() {
-    window.open("https://mail.google.com/mail/u/0/#inbox", "_blank", "noopener,noreferrer");
-};
 
 // Show the user's high-risk cases captured from their connected mailbox.
 window.viewMailboxThreats = async function() {
