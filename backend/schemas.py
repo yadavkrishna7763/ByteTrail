@@ -77,3 +77,32 @@ class MailboxResponse(BaseModel):
     access_token: Optional[str] = None
     created_at: Optional[str] = None
     last_polled: Optional[str] = None
+
+
+class UserRegister(BaseModel):
+    email: str = Field(..., description="Analyst email address")
+    password: str = Field(..., min_length=6, description="Password (min 6 characters)")
+    full_name: str = Field(..., description="Analyst Full Name")
+    role: Optional[str] = Field("analyst", description="Role (admin, analyst, viewer)")
+
+
+class UserLogin(BaseModel):
+    email: str = Field(..., description="Registered email address")
+    password: str = Field(..., description="Account password")
+
+
+class UserResponse(BaseModel):
+    id: int
+    email: str
+    full_name: str
+    role: str
+    is_active: bool
+    created_at: Optional[str] = None
+    last_login: Optional[str] = None
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserResponse
+

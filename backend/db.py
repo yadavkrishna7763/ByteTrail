@@ -179,6 +179,19 @@ def init_db(conn=None):
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
         """)
 
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                email VARCHAR(255) UNIQUE NOT NULL,
+                full_name VARCHAR(255) NOT NULL,
+                password_hash VARCHAR(255) NOT NULL,
+                role VARCHAR(50) DEFAULT 'analyst',
+                is_active BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_login TIMESTAMP NULL DEFAULT NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        """)
+
         # Run non-destructive column additions if upgrading existing database
         migrations = [
             "ALTER TABLE emails ADD COLUMN sha256_hash VARCHAR(64);",
@@ -263,6 +276,17 @@ def init_db(conn=None):
                 total_ingested INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 last_polled TIMESTAMP NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email TEXT UNIQUE NOT NULL,
+                full_name TEXT NOT NULL,
+                password_hash TEXT NOT NULL,
+                role TEXT DEFAULT 'analyst',
+                is_active INTEGER DEFAULT 1,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_login TIMESTAMP NULL
             );
         """)
 
@@ -750,3 +774,162 @@ def update_mailbox_tokens(mailbox_id: int, access_token: str, refresh_token: str
     cursor.close()
     conn.commit()
     conn.close()
+
+
+# ==============================================================================
+# User Management & Authentication Helpers
+# ==============================================================================
+def create_user(email: str, full_name: str, password_hash: str, role: str = "analyst") -> int:
+    """Create a new registered user in the database."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    clean_email = email.strip().lower()
+    
+    if ACTIVE_ENGINE == "mysql":
+        cursor.execute(
+            """
+            INSERT INTO users (email, full_name, password_hash, role, is_active)
+            VALUES (%s, %s, %s, %s, 1)
+            """,
+            (clean_email, full_name.strip(), password_hash, role),
+        )
+        user_id = cursor.lastrowid
+    else:
+        cursor.execute(
+            """
+            INSERT INTO users (email, full_name, password_hash, role, is_active)
+            VALUES (?, ?, ?, ?, 1)
+            """,
+            (clean_email, full_name.strip(), password_hash, role),
+        )
+        user_id = cursor.lastrowid
+
+    cursor.close()
+    conn.commit()
+    conn.close()
+    return user_id
+
+
+def get_user_by_email(email: str) -> Optional[Dict[str, Any]]:
+    """Retrieve user record by email address."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    clean_email = email.strip().lower()
+
+    if ACTIVE_ENGINE == "mysql":
+        cursor.execute(
+            "SELECT id, email, full_name, password_hash, role, is_active, created_at, last_login FROM users WHERE email = %s LIMIT 1",
+            (clean_email,),
+        )
+        row = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        if not row:
+            return None
+        return {
+            "id": row[0],
+            "email": row[1],
+            "full_name": row[2],
+            "password_hash": row[3],
+            "role": row[4],
+            "is_active": bool(row[5]),
+            "created_at": str(row[6]) if row[6] else None,
+            "last_login": str(row[7]) if row[7] else None,
+        }
+    else:
+        cursor.execute(
+            "SELECT id, email, full_name, password_hash, role, is_active, created_at, last_login FROM users WHERE email = ? LIMIT 1",
+            (clean_email,),
+        )
+        row = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        if not row:
+            return None
+        return {
+            "id": row["id"] if isinstance(row, sqlite3.Row) else row[0],
+            "email": row["email"] if isinstance(row, sqlite3.Row) else row[1],
+            "full_name": row["full_name"] if isinstance(row, sqlite3.Row) else row[2],
+            "password_hash": row["password_hash"] if isinstance(row, sqlite3.Row) else row[3],
+            "role": row["role"] if isinstance(row, sqlite3.Row) else row[4],
+            "is_active": bool(row["is_active"] if isinstance(row, sqlite3.Row) else row[5]),
+            "created_at": str(row["created_at"]) if (isinstance(row, sqlite3.Row) and row["created_at"]) or (not isinstance(row, sqlite3.Row) and row[6]) else None,
+            "last_login": str(row["last_login"]) if (isinstance(row, sqlite3.Row) and row["last_login"]) or (not isinstance(row, sqlite3.Row) and row[7]) else None,
+        }
+
+
+def get_user_by_id(user_id: int) -> Optional[Dict[str, Any]]:
+    """Retrieve user record by user ID."""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    if ACTIVE_ENGINE == "mysql":
+        cursor.execute(
+            "SELECT id, email, full_name, password_hash, role, is_active, created_at, last_login FROM users WHERE id = %s LIMIT 1",
+            (user_id,),
+        )
+        row = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        if not row:
+            return None
+        return {
+            "id": row[0],
+            "email": row[1],
+            "full_name": row[2],
+            "password_hash": row[3],
+            "role": row[4],
+            "is_active": bool(row[5]),
+            "created_at": str(row[6]) if row[6] else None,
+            "last_login": str(row[7]) if row[7] else None,
+        }
+    else:
+        cursor.execute(
+            "SELECT id, email, full_name, password_hash, role, is_active, created_at, last_login FROM users WHERE id = ? LIMIT 1",
+            (user_id,),
+        )
+        row = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        if not row:
+            return None
+        return {
+            "id": row["id"] if isinstance(row, sqlite3.Row) else row[0],
+            "email": row["email"] if isinstance(row, sqlite3.Row) else row[1],
+            "full_name": row["full_name"] if isinstance(row, sqlite3.Row) else row[2],
+            "password_hash": row["password_hash"] if isinstance(row, sqlite3.Row) else row[3],
+            "role": row["role"] if isinstance(row, sqlite3.Row) else row[4],
+            "is_active": bool(row["is_active"] if isinstance(row, sqlite3.Row) else row[5]),
+            "created_at": str(row["created_at"]) if (isinstance(row, sqlite3.Row) and row["created_at"]) or (not isinstance(row, sqlite3.Row) and row[6]) else None,
+            "last_login": str(row["last_login"]) if (isinstance(row, sqlite3.Row) and row["last_login"]) or (not isinstance(row, sqlite3.Row) and row[7]) else None,
+        }
+
+
+def update_user_last_login(user_id: int):
+    """Record current timestamp as user's last login."""
+    from datetime import datetime
+    conn = get_connection()
+    cursor = conn.cursor()
+    now_str = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+
+    if ACTIVE_ENGINE == "mysql":
+        cursor.execute("UPDATE users SET last_login = %s WHERE id = %s", (now_str, user_id))
+    else:
+        cursor.execute("UPDATE users SET last_login = ? WHERE id = ?", (now_str, user_id))
+
+    cursor.close()
+    conn.commit()
+    conn.close()
+
+
+def count_users() -> int:
+    """Return total number of registered users."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM users")
+    row = cursor.fetchone()
+    count = row[0] if row else 0
+    cursor.close()
+    conn.close()
+    return count
+

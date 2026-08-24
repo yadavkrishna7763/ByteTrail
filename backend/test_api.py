@@ -160,3 +160,63 @@ def test_connected_mailboxes_api():
 
         # 3. Clean up
         delete_connected_mailbox(mb_id)
+
+
+def test_user_registration_and_login():
+    import uuid
+    with TestClient(app) as c:
+        unique_id = uuid.uuid4().hex[:8]
+        test_email = f"test.analyst.{unique_id}@bytetrail.io"
+        test_password = "SecureAnalystPassword123!"
+
+        # 1. Register new user
+        reg_payload = {
+            "email": test_email,
+            "password": test_password,
+            "full_name": "Test Security Analyst",
+            "role": "analyst",
+        }
+        reg_resp = c.post("/api/auth/register", json=reg_payload)
+        assert reg_resp.status_code == 201
+        reg_data = reg_resp.json()
+        assert "access_token" in reg_data
+        assert reg_data["user"]["email"] == test_email
+        token = reg_data["access_token"]
+
+        # 2. Duplicate registration rejection
+        dup_resp = c.post("/api/auth/register", json=reg_payload)
+        assert dup_resp.status_code == 400
+
+        # 3. Login with correct password
+        login_resp = c.post("/api/auth/login", json={"email": test_email, "password": test_password})
+        assert login_resp.status_code == 200
+        login_data = login_resp.json()
+        assert "access_token" in login_data
+        assert login_data["user"]["email"] == test_email
+
+        # 4. Login with invalid password rejection
+        bad_login = c.post("/api/auth/login", json={"email": test_email, "password": "WrongPassword123"})
+        assert bad_login.status_code == 401
+
+        # 5. Access /api/auth/me with Bearer token
+        headers = {"Authorization": f"Bearer {token}"}
+        me_resp = c.get("/api/auth/me", headers=headers)
+        assert me_resp.status_code == 200
+        assert me_resp.json()["email"] == test_email
+
+
+def test_demo_login_and_auth_me():
+    with TestClient(app) as c:
+        # 1. 1-Click Demo Login
+        demo_resp = c.post("/api/auth/demo-login")
+        assert demo_resp.status_code == 200
+        data = demo_resp.json()
+        assert "access_token" in data
+        assert data["user"]["email"] == "admin@bytetrail.io"
+
+        # 2. Access /api/auth/me with demo token
+        headers = {"Authorization": f"Bearer {data['access_token']}"}
+        me_resp = c.get("/api/auth/me", headers=headers)
+        assert me_resp.status_code == 200
+        assert me_resp.json()["email"] == "admin@bytetrail.io"
+

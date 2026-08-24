@@ -94,6 +94,7 @@ const SCENARIOS = {
 
 // Initialize Application
 document.addEventListener("DOMContentLoaded", () => {
+    renderAuthUI();
     initNavTabs();
     initRadarMap();
     initEmlDropzone();
@@ -102,12 +103,261 @@ document.addEventListener("DOMContentLoaded", () => {
     loadConnectedMailboxes();
     initEventListeners();
 
+    // If user already has active session, open SOC console; otherwise start on showcase guide
+    if (getAuthToken()) {
+        switchViewMode("soc");
+    } else {
+        switchViewMode("landing");
+    }
+
     // Auto health check polling
     setInterval(() => {
         checkBackendStatus();
         loadEmails(false); // Silent background refresh
     }, 10000);
 });
+
+// ==============================================================================
+// View Mode Switching (Product Showcase vs Live SOC Console)
+// ==============================================================================
+function switchViewMode(mode, targetSubTab = null) {
+    const landingSection = document.getElementById("landing-page");
+    const socSection = document.getElementById("soc-dashboard");
+    const btnModeLanding = document.getElementById("btn-mode-landing");
+    const btnModeSoc = document.getElementById("btn-mode-soc");
+
+    if (mode === "soc") {
+        if (!getAuthToken()) {
+            openAuthModal("signin");
+            showToast("🔒 Please sign in or click Demo Analyst to enter the Live SOC Console", "info");
+            return;
+        }
+
+        if (landingSection) landingSection.classList.add("hidden");
+        if (socSection) socSection.classList.remove("hidden");
+        if (btnModeLanding) btnModeLanding.classList.remove("active");
+        if (btnModeSoc) btnModeSoc.classList.add("active");
+
+        if (targetSubTab) {
+            const tabBtn = document.querySelector(`.nav-tab[data-tab="${targetSubTab}"]`);
+            if (tabBtn) tabBtn.click();
+        }
+
+        if (radarMap) {
+            setTimeout(() => radarMap.invalidateSize(), 200);
+        }
+    } else {
+        if (landingSection) landingSection.classList.remove("hidden");
+        if (socSection) socSection.classList.add("hidden");
+        if (btnModeLanding) btnModeLanding.classList.add("active");
+        if (btnModeSoc) btnModeSoc.classList.remove("active");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+}
+
+// ==============================================================================
+// Authentication & Session State Management
+// ==============================================================================
+function getAuthToken() {
+    return localStorage.getItem("bytetrail_jwt_token");
+}
+
+function getAuthUser() {
+    try {
+        return JSON.parse(localStorage.getItem("bytetrail_user") || "null");
+    } catch {
+        return null;
+    }
+}
+
+function setAuthSession(token, user) {
+    localStorage.setItem("bytetrail_jwt_token", token);
+    localStorage.setItem("bytetrail_user", JSON.stringify(user));
+    renderAuthUI();
+}
+
+function clearAuthSession() {
+    localStorage.removeItem("bytetrail_jwt_token");
+    localStorage.removeItem("bytetrail_user");
+    renderAuthUI();
+    switchViewMode("landing");
+    showToast("Signed out successfully.", "info");
+}
+
+function getAuthHeaders(extraHeaders = {}) {
+    const token = getAuthToken();
+    const headers = { ...extraHeaders };
+    if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+    }
+    return headers;
+}
+
+function renderAuthUI() {
+    const user = getAuthUser();
+    const token = getAuthToken();
+    const unloggedCluster = document.getElementById("auth-unlogged-cluster");
+    const loggedCluster = document.getElementById("auth-logged-cluster");
+    const displayName = document.getElementById("user-display-name");
+    const displayRole = document.getElementById("user-display-role");
+    const avatarInitials = document.getElementById("user-avatar-initials");
+
+    if (token && user) {
+        if (unloggedCluster) unloggedCluster.classList.add("hidden");
+        if (loggedCluster) loggedCluster.classList.remove("hidden");
+
+        if (displayName) displayName.textContent = user.full_name || user.email.split("@")[0];
+        if (displayRole) displayRole.textContent = (user.role || "Analyst").toUpperCase();
+
+        if (avatarInitials) {
+            const names = (user.full_name || user.email).trim().split(" ");
+            let initials = names[0][0];
+            if (names.length > 1) initials += names[1][0];
+            avatarInitials.textContent = initials.toUpperCase();
+        }
+    } else {
+        if (unloggedCluster) unloggedCluster.classList.remove("hidden");
+        if (loggedCluster) loggedCluster.classList.add("hidden");
+    }
+}
+
+// Modal & Form Handlers
+function openAuthModal(initialTab = "signin") {
+    const modal = document.getElementById("auth-modal");
+    if (!modal) return;
+    modal.classList.remove("hidden");
+    switchAuthModalTab(initialTab);
+}
+
+function closeAuthModal() {
+    const modal = document.getElementById("auth-modal");
+    if (!modal) return;
+    modal.classList.add("hidden");
+    const signinErr = document.getElementById("signin-error");
+    const signupErr = document.getElementById("signup-error");
+    if (signinErr) signinErr.classList.add("hidden");
+    if (signupErr) signupErr.classList.add("hidden");
+}
+
+function switchAuthModalTab(tab) {
+    const btnSignin = document.getElementById("tab-btn-signin");
+    const btnSignup = document.getElementById("tab-btn-signup");
+    const formSignin = document.getElementById("form-signin");
+    const formSignup = document.getElementById("form-signup");
+    const modalTitle = document.getElementById("auth-modal-title");
+
+    if (tab === "signup") {
+        btnSignin?.classList.remove("active");
+        btnSignup?.classList.add("active");
+        formSignin?.classList.add("hidden");
+        formSignup?.classList.remove("hidden");
+        if (modalTitle) modalTitle.textContent = "Create SOC Analyst Account";
+    } else {
+        btnSignin?.classList.add("active");
+        btnSignup?.classList.remove("active");
+        formSignin?.classList.remove("hidden");
+        formSignup?.classList.add("hidden");
+        if (modalTitle) modalTitle.textContent = "SOC Analyst Authentication";
+    }
+}
+
+async function handleSignInSubmit(e) {
+    e.preventDefault();
+    const email = document.getElementById("signin-email").value.trim();
+    const password = document.getElementById("signin-password").value;
+    const errBox = document.getElementById("signin-error");
+    const spinner = document.getElementById("signin-spinner");
+    const btn = document.getElementById("btn-submit-signin");
+
+    if (errBox) errBox.classList.add("hidden");
+    if (spinner) spinner.classList.remove("hidden");
+    if (btn) btn.disabled = true;
+
+    try {
+        const res = await fetch(`${API_BASE}/api/auth/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Authentication failed");
+
+        setAuthSession(data.access_token, data.user);
+        closeAuthModal();
+        showToast(`✅ Welcome back, ${data.user.full_name || data.user.email}!`, "success");
+        switchViewMode("soc");
+        await loadEmails(false);
+        await loadConnectedMailboxes();
+    } catch (err) {
+        if (errBox) {
+            errBox.textContent = `❌ ${err.message}`;
+            errBox.classList.remove("hidden");
+        }
+    } finally {
+        if (spinner) spinner.classList.add("hidden");
+        if (btn) btn.disabled = false;
+    }
+}
+
+async function handleSignUpSubmit(e) {
+    e.preventDefault();
+    const full_name = document.getElementById("signup-name").value.trim();
+    const email = document.getElementById("signup-email").value.trim();
+    const password = document.getElementById("signup-password").value;
+    const role = document.getElementById("signup-role").value;
+    const errBox = document.getElementById("signup-error");
+    const spinner = document.getElementById("signup-spinner");
+    const btn = document.getElementById("btn-submit-signup");
+
+    if (errBox) errBox.classList.add("hidden");
+    if (spinner) spinner.classList.remove("hidden");
+    if (btn) btn.disabled = true;
+
+    try {
+        const res = await fetch(`${API_BASE}/api/auth/register`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ full_name, email, password, role })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Registration failed");
+
+        setAuthSession(data.access_token, data.user);
+        closeAuthModal();
+        showToast(`🎉 Account created! Welcome, ${data.user.full_name}!`, "success");
+        switchViewMode("soc");
+        await loadEmails(false);
+        await loadConnectedMailboxes();
+    } catch (err) {
+        if (errBox) {
+            errBox.textContent = `❌ ${err.message}`;
+            errBox.classList.remove("hidden");
+        }
+    } finally {
+        if (spinner) spinner.classList.add("hidden");
+        if (btn) btn.disabled = false;
+    }
+}
+
+async function handleDemoLogin() {
+    showToast("⚡ Authenticating as Senior SOC Analyst...", "info");
+    try {
+        const res = await fetch(`${API_BASE}/api/auth/demo-login`, {
+            method: "POST"
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Demo login failed");
+
+        setAuthSession(data.access_token, data.user);
+        closeAuthModal();
+        showToast(`🚀 Authenticated as ${data.user.full_name} (${data.user.email})!`, "success");
+        switchViewMode("soc");
+        await loadEmails(false);
+        await loadConnectedMailboxes();
+    } catch (err) {
+        showToast(`❌ Demo login error: ${err.message}`, "error");
+    }
+}
 
 // Setup Navigation Tabs
 function initNavTabs() {
@@ -165,6 +415,60 @@ function initNavTabs() {
 
 // Setup Event Listeners
 function initEventListeners() {
+    // Mode Switchers & Brand Link
+    const brandHome = document.getElementById("brand-home-link");
+    if (brandHome) brandHome.addEventListener("click", () => switchViewMode("landing"));
+
+    const btnModeLanding = document.getElementById("btn-mode-landing");
+    if (btnModeLanding) btnModeLanding.addEventListener("click", () => switchViewMode("landing"));
+
+    const btnModeSoc = document.getElementById("btn-mode-soc");
+    if (btnModeSoc) btnModeSoc.addEventListener("click", () => switchViewMode("soc"));
+
+    // Auth Triggers
+    const btnQuickDemo = document.getElementById("btn-quick-demo-login");
+    if (btnQuickDemo) btnQuickDemo.addEventListener("click", handleDemoLogin);
+
+    const btnOpenLogin = document.getElementById("btn-open-login-modal");
+    if (btnOpenLogin) btnOpenLogin.addEventListener("click", () => openAuthModal("signin"));
+
+    const btnHeroLaunchSoc = document.getElementById("btn-hero-launch-soc");
+    if (btnHeroLaunchSoc) btnHeroLaunchSoc.addEventListener("click", () => switchViewMode("soc"));
+
+    const btnHeroDemoLogin = document.getElementById("btn-hero-demo-login");
+    if (btnHeroDemoLogin) btnHeroDemoLogin.addEventListener("click", handleDemoLogin);
+
+    const btnBottomLaunchSoc = document.getElementById("btn-bottom-launch-soc");
+    if (btnBottomLaunchSoc) btnBottomLaunchSoc.addEventListener("click", () => switchViewMode("soc"));
+
+    const btnBottomOpenAuth = document.getElementById("btn-bottom-open-auth");
+    if (btnBottomOpenAuth) btnBottomOpenAuth.addEventListener("click", () => openAuthModal("signup"));
+
+    const btnModalDemoLogin = document.getElementById("btn-modal-demo-login");
+    if (btnModalDemoLogin) btnModalDemoLogin.addEventListener("click", handleDemoLogin);
+
+    const btnCloseAuth = document.getElementById("btn-close-auth-modal");
+    const authBackdrop = document.getElementById("auth-modal-backdrop");
+    if (btnCloseAuth) btnCloseAuth.addEventListener("click", closeAuthModal);
+    if (authBackdrop) authBackdrop.addEventListener("click", closeAuthModal);
+
+    // Auth Mode Tabs in Modal
+    const tabBtnSignin = document.getElementById("tab-btn-signin");
+    const tabBtnSignup = document.getElementById("tab-btn-signup");
+    if (tabBtnSignin) tabBtnSignin.addEventListener("click", () => switchAuthModalTab("signin"));
+    if (tabBtnSignup) tabBtnSignup.addEventListener("click", () => switchAuthModalTab("signup"));
+
+    // Auth Forms Submit
+    const formSignin = document.getElementById("form-signin");
+    if (formSignin) formSignin.addEventListener("submit", handleSignInSubmit);
+
+    const formSignup = document.getElementById("form-signup");
+    if (formSignup) formSignup.addEventListener("submit", handleSignUpSubmit);
+
+    // User Logout
+    const btnUserLogout = document.getElementById("btn-user-logout");
+    if (btnUserLogout) btnUserLogout.addEventListener("click", clearAuthSession);
+
     // Ingestion Form
     const form = document.getElementById("ingest-form");
     if (form) form.addEventListener("submit", handleIngestSubmit);
@@ -392,6 +696,7 @@ async function handleFileUpload(file) {
     try {
         const response = await fetch(`${API_BASE}/emails/upload-eml`, {
             method: "POST",
+            headers: getAuthHeaders(),
             body: formData
         });
 
@@ -451,7 +756,9 @@ async function checkBackendStatus() {
 async function loadEmails(showFeedback = false) {
     const tbody = document.getElementById("feed-tbody");
     try {
-        const res = await fetch(`${API_BASE}/emails`);
+        const res = await fetch(`${API_BASE}/emails`, {
+            headers: getAuthHeaders()
+        });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         
         const latest = await res.json();
@@ -486,7 +793,9 @@ async function loadConnectedMailboxes() {
     if (!grid) return;
 
     try {
-        const res = await fetch(`${API_BASE}/api/v1/mailboxes`);
+        const res = await fetch(`${API_BASE}/api/v1/mailboxes`, {
+            headers: getAuthHeaders()
+        });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         connectedMailboxes = await res.json();
 
@@ -583,7 +892,7 @@ async function handleConnectMailboxSubmit(e) {
     try {
         const res = await fetch(`${API_BASE}/api/v1/mailboxes/connect`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: getAuthHeaders({ "Content-Type": "application/json" }),
             body: JSON.stringify({
                 email_address: emailAddress,
                 password: password,
@@ -1112,7 +1421,7 @@ async function handleIngestSubmit(e) {
     try {
         const response = await fetch(`${API_BASE}/emails`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: getAuthHeaders({ "Content-Type": "application/json" }),
             body: JSON.stringify({
                 sender,
                 subject,

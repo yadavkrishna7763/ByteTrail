@@ -2,7 +2,7 @@ import os
 from contextlib import asynccontextmanager
 from typing import List, Optional, Dict
 from pathlib import Path
-from fastapi import FastAPI, HTTPException, UploadFile, File, Request, status
+from fastapi import FastAPI, HTTPException, UploadFile, File, Request, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
@@ -19,8 +19,28 @@ from db import (
     delete_connected_mailbox,
     update_mailbox_stats,
     upsert_oauth_mailbox,
+    create_user,
+    get_user_by_email,
+    get_user_by_id,
+    update_user_last_login,
+    count_users,
 )
-from schemas import EmailCreate, EmailDetailResponse, MailboxConnectRequest, MailboxResponse
+from schemas import (
+    EmailCreate,
+    EmailDetailResponse,
+    MailboxConnectRequest,
+    MailboxResponse,
+    UserRegister,
+    UserLogin,
+    UserResponse,
+    TokenResponse,
+)
+from auth import (
+    hash_password,
+    verify_password,
+    create_access_token,
+    get_current_user,
+)
 from fraud_detection import scan_email_content
 from header_analysis import analyze_headers
 from geo_lookup import resolve_geo_for_headers
@@ -47,7 +67,17 @@ async def lifespan(app: FastAPI):
     init_db()
     init_watch_directories()
 
-    # 2. Register pipeline runner and start automated background mailbox polling daemon
+    # 2. Seed default demo analyst user if no users exist
+    try:
+        if count_users() == 0:
+            demo_email = "admin@bytetrail.io"
+            demo_name = "SOC Senior Analyst"
+            demo_pass_hash = hash_password("ByteTrail@2026!")
+            create_user(demo_email, demo_name, demo_pass_hash, role="admin")
+    except Exception:
+        pass
+
+    # 3. Register pipeline runner and start automated background mailbox polling daemon
     mailbox_manager.register_pipeline_runner(run_intelligence_pipeline)
     mailbox_manager.start_background_poller(interval_seconds=10)
 
@@ -163,6 +193,134 @@ def run_intelligence_pipeline(sender: str, subject: str, raw_headers: Optional[s
 def ping():
     """Health check endpoint confirming API and system status."""
     return {"status": "ok"}
+
+
+# ==============================================================================
+# Authentication & User Management Endpoints
+# ==============================================================================
+@app.post(
+    "/api/auth/register",
+    response_model=TokenResponse,
+    status_code=status.HTTP_201_CREATED,
+    tags=["Authentication & Users"],
+)
+def register_user(payload: UserRegister):
+    """
+    Register a new SOC analyst or administrator account and return JWT access token.
+    """
+    clean_email = payload.email.strip().lower()
+    existing = get_user_by_email(clean_email)
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="An account with this email address already exists.",
+        )
+
+    pass_hash = hash_password(payload.password)
+    user_id = create_user(
+        email=clean_email,
+        full_name=payload.full_name,
+        password_hash=pass_hash,
+        role=payload.role or "analyst",
+    )
+    user_data = get_user_by_id(user_id)
+    if not user_data:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve registered user profile.",
+        )
+
+    token = create_access_token({"sub": user_id, "email": clean_email, "role": user_data["role"]})
+    update_user_last_login(user_id)
+
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": user_data,
+    }
+
+
+@app.post(
+    "/api/auth/login",
+    response_model=TokenResponse,
+    tags=["Authentication & Users"],
+)
+def login_user(payload: UserLogin):
+    """
+    Authenticate analyst credentials and issue a signed JWT access token.
+    """
+    clean_email = payload.email.strip().lower()
+    user_data = get_user_by_email(clean_email)
+    if not user_data:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password. Please check your credentials.",
+        )
+
+    if not verify_password(payload.password, user_data["password_hash"]):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password. Please check your credentials.",
+        )
+
+    if not user_data.get("is_active", True):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This account has been deactivated. Please contact your SOC administrator.",
+        )
+
+    user_id = user_data["id"]
+    token = create_access_token({"sub": user_id, "email": clean_email, "role": user_data["role"]})
+    update_user_last_login(user_id)
+    user_data["last_login"] = "Just now"
+
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": user_data,
+    }
+
+
+@app.post(
+    "/api/auth/demo-login",
+    response_model=TokenResponse,
+    tags=["Authentication & Users"],
+)
+def demo_login():
+    """
+    1-Click Demo Analyst Login for instant SIH evaluator and testing access.
+    """
+    demo_email = "admin@bytetrail.io"
+    user_data = get_user_by_email(demo_email)
+    if not user_data:
+        demo_name = "SOC Senior Analyst"
+        demo_pass_hash = hash_password("ByteTrail@2026!")
+        user_id = create_user(demo_email, demo_name, demo_pass_hash, role="admin")
+        user_data = get_user_by_id(user_id)
+    else:
+        user_id = user_data["id"]
+
+    token = create_access_token({"sub": user_id, "email": demo_email, "role": user_data["role"]})
+    update_user_last_login(user_id)
+
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": user_data,
+    }
+
+
+@app.get(
+    "/api/auth/me",
+    response_model=UserResponse,
+    tags=["Authentication & Users"],
+)
+def get_current_user_profile(current_user: dict = Depends(get_current_user)):
+    """
+    Fetch profile and permissions of the currently authenticated user.
+    """
+    return current_user
+
 
 
 @app.post(
