@@ -168,8 +168,14 @@ def fetch_gmail_raw_messages(
         list_resp = client.get(url, headers=headers)
         if list_resp.status_code != 200:
             logger.warning("Gmail API messages list returned %d: %s", list_resp.status_code, list_resp.text)
+            if list_resp.status_code == 401:
+                raise ValueError("Google authorization expired. Reconnect the Gmail inbox and approve access again.")
+            if list_resp.status_code == 403:
+                raise ValueError(
+                    "Google denied Gmail access. Enable the Gmail API in Google Cloud, add this account as a test user if the app is in Testing, then reconnect and approve Gmail read-only access."
+                )
             raise ValueError(
-                "Gmail could not read this inbox. Reconnect and approve the Gmail read-only permission."
+                f"Gmail could not read this inbox (Google API error {list_resp.status_code}). Reconnect and approve the Gmail read-only permission."
             )
 
         data = list_resp.json()
