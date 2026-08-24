@@ -45,9 +45,9 @@
 
             <!-- Nav Actions & User Profile Area -->
             <div class="nav-right">
-                <button class="btn btn-cyber-secondary btn-sm" id="btn-landing-demo-login" title="1-Click Instant Demo Login">
-                    <i class="fa-solid fa-bolt" style="color: #fbbf24;"></i>
-                    <span>Demo Analyst</span>
+                <button class="btn btn-cyber-secondary btn-sm" id="btn-landing-demo-login" title="1-Click Administrator Access">
+                    <i class="fa-solid fa-user-shield" style="color: #34d399;"></i>
+                    <span>Admin Quick Access</span>
                 </button>
                 <a href="login.html" class="btn btn-cyber-primary btn-sm" id="btn-landing-main-cta">
                     <i class="fa-solid fa-lock"></i>
@@ -77,12 +77,12 @@
                         <span>Launch Live SOC Console</span>
                     </a>
                     <button class="btn btn-hero-secondary" id="btn-hero-quick-demo">
-                        <i class="fa-solid fa-bolt" style="color: #fbbf24;"></i>
-                        <span>1-Click Demo Analyst Login</span>
+                        <i class="fa-solid fa-user-shield" style="color: #34d399;"></i>
+                        <span>1-Click Admin (Krishna Yadav)</span>
                     </button>
-                    <a href="#privacy" class="btn btn-hero-ghost">
-                        <i class="fa-solid fa-shield-halved"></i>
-                        <span>How Your Email Is Protected</span>
+                    <a href="login.html" class="btn btn-hero-ghost">
+                        <i class="fa-brands fa-google" style="color: #60a5fa;"></i>
+                        <span>Sign In with Google</span>
                     </a>
                 </div>
 
@@ -326,15 +326,15 @@
             }
         }
 
-        // Demo Login Click
+        // Administrator Login Click (Krishna Yadav)
         const handleDemoClick = async () => {
-            showToast("⚡ Authenticating as Senior SOC Analyst...", "info");
+            showToast("⚡ Authenticating as Administrator (krishnayadav770694@gmail.com)...", "info");
             try {
                 const data = await executeDemoLogin();
                 showToast(`🚀 Authenticated as ${data.user.full_name}! Redirecting...`, "success");
                 setTimeout(() => window.location.href = "dashboard.html", 500);
             } catch (err) {
-                showToast(`❌ Demo login error: ${err.message}`, "error");
+                showToast(`❌ Admin login error: ${err.message}`, "error");
             }
         };
 

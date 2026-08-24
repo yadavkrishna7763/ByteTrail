@@ -207,16 +207,28 @@ def test_user_registration_and_login():
 
 def test_demo_login_and_auth_me():
     with TestClient(app) as c:
-        # 1. 1-Click Demo Login
+        # 1. 1-Click Administrator Login
         demo_resp = c.post("/api/auth/demo-login")
         assert demo_resp.status_code == 200
         data = demo_resp.json()
         assert "access_token" in data
-        assert data["user"]["email"] == "admin@bytetrail.io"
+        assert data["user"]["email"] == "krishnayadav770694@gmail.com"
+        assert data["user"]["role"] == "admin"
 
         # 2. Access /api/auth/me with demo token
         headers = {"Authorization": f"Bearer {data['access_token']}"}
         me_resp = c.get("/api/auth/me", headers=headers)
         assert me_resp.status_code == 200
-        assert me_resp.json()["email"] == "admin@bytetrail.io"
+        assert me_resp.json()["email"] == "krishnayadav770694@gmail.com"
+
+
+def test_google_signin_flow():
+    with TestClient(app) as c:
+        resp = c.post("/api/auth/google/signin", json={"email": "google.test.user@gmail.com", "full_name": "Google Test User"})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "access_token" in data
+        assert data["user"]["email"] == "google.test.user@gmail.com"
+        assert data["user"]["role"] == "analyst"
+
 

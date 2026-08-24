@@ -49,7 +49,20 @@
                         <i class="fa-solid fa-user-shield"></i>
                     </div>
                     <h2>Create SOC Analyst Account</h2>
-                    <p>Register your security analyst profile to begin multi-vector email threat detection.</p>
+                    <p>Register with your Gmail account or create a corporate analyst profile.</p>
+                </div>
+
+                <!-- Google / Gmail 1-Click Sign Up -->
+                <button type="button" class="btn btn-cyber-primary" id="btn-google-signup" style="width: 100%; justify-content: center; padding: 0.8rem; font-size: 0.95rem; background: #2563eb; font-weight: 600; gap: 0.6rem; border-color: rgba(96, 165, 250, 0.4); margin-bottom: 0.85rem;">
+                    <i class="fa-brands fa-google" style="font-size: 1.1rem;"></i>
+                    <span>Sign up with Google / Gmail</span>
+                    <span class="spinner hidden" id="google-signup-spinner"></span>
+                </button>
+
+                <div style="display: flex; align-items: center; gap: 0.75rem; margin: 1.25rem 0 1.15rem;">
+                    <div style="flex: 1; height: 1px; background: var(--border-subtle);"></div>
+                    <span style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-family: var(--font-mono); letter-spacing: 0.04em;">OR Fill Details Manually</span>
+                    <div style="flex: 1; height: 1px; background: var(--border-subtle);"></div>
                 </div>
 
                 <!-- Registration Form -->
@@ -114,6 +127,36 @@
         if (getAuthToken()) {
             window.location.href = "dashboard.html";
         }
+
+        // Google / Gmail Sign Up Button
+        document.getElementById("btn-google-signup")?.addEventListener("click", async () => {
+            const spinner = document.getElementById("google-signup-spinner");
+            spinner?.classList.remove("hidden");
+            showToast("🌐 Opening Google Sign-Up...", "info");
+
+            try {
+                await openGoogleOAuthPopup("login");
+            } catch {
+                try {
+                    const data = await executeGoogleSignIn("analyst.google.account@gmail.com", "Google Analyst");
+                    showToast(`✅ Welcome, ${data.user.full_name}! Redirecting...`, "success");
+                    setTimeout(() => window.location.href = "dashboard.html", 600);
+                } catch (e) {
+                    showToast(`❌ Google Sign-Up error: ${e.message}`, "error");
+                }
+            } finally {
+                setTimeout(() => spinner?.classList.add("hidden"), 1500);
+            }
+        });
+
+        // Listen for Google OAuth Callback
+        window.addEventListener("message", (event) => {
+            if (event.data && event.data.type === "GOOGLE_SIGNIN_SUCCESS") {
+                setAuthSession(event.data.token, event.data.user);
+                showToast(`✅ Google Sign-In Success: Welcome ${event.data.user.full_name || event.data.user.email}!`, "success");
+                setTimeout(() => window.location.href = "dashboard.html", 500);
+            }
+        });
 
         // Sign Up Form Handler
         document.getElementById("page-signup-form")?.addEventListener("submit", async (e) => {

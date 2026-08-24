@@ -48,25 +48,32 @@
                     <div class="modal-icon-badge" style="width: 48px; height: 48px; font-size: 1.35rem; margin: 0 auto 0.85rem;">
                         <i class="fa-solid fa-shield-halved"></i>
                     </div>
-                    <h2>SOC Analyst Authentication</h2>
-                    <p>Enter your analyst credentials to access the live threat radar and forensics console.</p>
+                    <h2>Platform Authentication</h2>
+                    <p>Sign in with your Gmail account or authenticate as SOC Administrator.</p>
                 </div>
 
-                <!-- 1-Click Instant Demo Login -->
-                <div class="auth-demo-banner" id="btn-page-demo-login">
+                <!-- Google / Gmail 1-Click Login Button -->
+                <button type="button" class="btn btn-cyber-primary" id="btn-google-login" style="width: 100%; justify-content: center; padding: 0.8rem; font-size: 0.95rem; background: #2563eb; font-weight: 600; gap: 0.6rem; border-color: rgba(96, 165, 250, 0.4); margin-bottom: 0.85rem;">
+                    <i class="fa-brands fa-google" style="font-size: 1.1rem;"></i>
+                    <span>Sign in with Google / Gmail</span>
+                    <span class="spinner hidden" id="google-login-spinner"></span>
+                </button>
+
+                <!-- 1-Click Administrator Login (Krishna Yadav) -->
+                <div class="auth-demo-banner" id="btn-page-admin-login" style="cursor: pointer;">
                     <div style="display: flex; align-items: center; gap: 0.75rem;">
-                        <i class="fa-solid fa-bolt" style="color: #fbbf24; font-size: 1.35rem;"></i>
+                        <i class="fa-solid fa-user-shield" style="color: #34d399; font-size: 1.35rem;"></i>
                         <div style="text-align: left;">
-                            <div style="font-weight: 700; font-size: 0.88rem; color: #ffffff;">1-Click Demo Analyst Login</div>
-                            <div style="font-size: 0.74rem; color: var(--text-muted);">Instant access as admin@bytetrail.io</div>
+                            <div style="font-weight: 700; font-size: 0.88rem; color: #ffffff;">Administrator Quick Login</div>
+                            <div style="font-size: 0.74rem; color: var(--text-muted);">krishnayadav770694@gmail.com</div>
                         </div>
                     </div>
-                    <span class="badge-risk-pill low" style="margin-left: auto;">Instant</span>
+                    <span class="badge-risk-pill low" style="margin-left: auto;">Admin</span>
                 </div>
 
-                <div style="display: flex; align-items: center; gap: 0.75rem; margin: 1.35rem 0 1.15rem;">
+                <div style="display: flex; align-items: center; gap: 0.75rem; margin: 1.25rem 0 1.15rem;">
                     <div style="flex: 1; height: 1px; background: var(--border-subtle);"></div>
-                    <span style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-family: var(--font-mono); letter-spacing: 0.04em;">OR Sign In With Email</span>
+                    <span style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-family: var(--font-mono); letter-spacing: 0.04em;">OR Sign In With Password</span>
                     <div style="flex: 1; height: 1px; background: var(--border-subtle);"></div>
                 </div>
 
@@ -74,12 +81,13 @@
                 <form id="page-signin-form" class="auth-form">
                     <div class="form-field">
                         <label for="signin-email"><i class="fa-solid fa-at"></i> Email Address <span class="req">*</span></label>
-                        <input type="email" id="signin-email" placeholder="e.g. analyst@company.com" required autocomplete="username">
+                        <input type="email" id="signin-email" placeholder="e.g. krishnayadav770694@gmail.com" required autocomplete="username">
                     </div>
 
                     <div class="form-field">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
                             <label for="signin-password" style="margin-bottom: 0;"><i class="fa-solid fa-key"></i> Password <span class="req">*</span></label>
+                            <button type="button" class="btn-link" id="btn-prefill-admin" style="font-size: 0.72rem; color: var(--primary);">Prefill Admin</button>
                         </div>
                         <input type="password" id="signin-password" placeholder="Enter your password" required autocomplete="current-password">
                     </div>
@@ -123,9 +131,43 @@
             window.location.href = redirect;
         }
 
-        // Demo Login Handler
-        document.getElementById("btn-page-demo-login")?.addEventListener("click", async () => {
-            showToast("⚡ Authenticating as Senior SOC Analyst...", "info");
+        // Google / Gmail Sign In Button
+        document.getElementById("btn-google-login")?.addEventListener("click", async () => {
+            const spinner = document.getElementById("google-login-spinner");
+            spinner?.classList.remove("hidden");
+            showToast("🌐 Opening Google Sign-In...", "info");
+
+            try {
+                // Try official OAuth popup first
+                await openGoogleOAuthPopup("login");
+            } catch {
+                // Fallback simulation for local/testing
+                try {
+                    const data = await executeGoogleSignIn("analyst.google.account@gmail.com", "Google Analyst");
+                    showToast(`✅ Welcome, ${data.user.full_name}! Redirecting...`, "success");
+                    setTimeout(() => window.location.href = "dashboard.html", 600);
+                } catch (e) {
+                    showToast(`❌ Google Sign-In error: ${e.message}`, "error");
+                }
+            } finally {
+                setTimeout(() => spinner?.classList.add("hidden"), 1500);
+            }
+        });
+
+        // Listen for Google OAuth Callback message from popup window
+        window.addEventListener("message", (event) => {
+            if (event.data && event.data.type === "GOOGLE_SIGNIN_SUCCESS") {
+                setAuthSession(event.data.token, event.data.user);
+                showToast(`✅ Google Sign-In Success: Welcome ${event.data.user.full_name || event.data.user.email}!`, "success");
+                const params = new URLSearchParams(window.location.search);
+                const redirect = params.get("redirect") || "dashboard.html";
+                setTimeout(() => window.location.href = redirect, 500);
+            }
+        });
+
+        // 1-Click Administrator Login Handler (Krishna Yadav)
+        document.getElementById("btn-page-admin-login")?.addEventListener("click", async () => {
+            showToast("⚡ Authenticating as Administrator (krishnayadav770694@gmail.com)...", "info");
             try {
                 const data = await executeDemoLogin();
                 showToast(`🚀 Authenticated as ${data.user.full_name}! Redirecting...`, "success");
@@ -133,8 +175,15 @@
                 const redirect = params.get("redirect") || "dashboard.html";
                 setTimeout(() => window.location.href = redirect, 500);
             } catch (err) {
-                showToast(`❌ Demo login failed: ${err.message}`, "error");
+                showToast(`❌ Admin login failed: ${err.message}`, "error");
             }
+        });
+
+        // Prefill Admin Credentials
+        document.getElementById("btn-prefill-admin")?.addEventListener("click", () => {
+            document.getElementById("signin-email").value = "krishnayadav770694@gmail.com";
+            document.getElementById("signin-password").value = "ByteTrail@2026!";
+            showToast("Prefilled Administrator credentials.", "info");
         });
 
         // Sign In Form Handler
@@ -152,7 +201,7 @@
 
             try {
                 const data = await executeLogin(email, password);
-                showToast(`✅ Welcome back, ${data.user.full_name || data.user.email}! Redirecting...`, "success");
+                showToast(`✅ Welcome, ${data.user.full_name || data.user.email}! Redirecting...`, "success");
                 const params = new URLSearchParams(window.location.search);
                 const redirect = params.get("redirect") || "dashboard.html";
                 setTimeout(() => window.location.href = redirect, 500);

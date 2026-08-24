@@ -125,8 +125,46 @@ async function executeDemoLogin() {
     });
     const data = await res.json();
     if (!res.ok) {
-        throw new Error(data.detail || "Demo authentication failed");
+        throw new Error(data.detail || "Administrator authentication failed");
     }
     setAuthSession(data.access_token, data.user);
     return data;
 }
+
+async function executeGoogleSignIn(email = null, full_name = null, access_token = null) {
+    const res = await fetch(`${AUTH_API_BASE}/api/auth/google/signin`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, full_name, access_token })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+        throw new Error(data.detail || "Google authentication failed");
+    }
+    setAuthSession(data.access_token, data.user);
+    return data;
+}
+
+async function openGoogleOAuthPopup(purpose = "login") {
+    try {
+        const res = await fetch(`${AUTH_API_BASE}/api/v1/auth/google/url?purpose=${purpose}`);
+        const data = await res.json();
+        const authUrl = data.url;
+
+        const width = 520;
+        const height = 650;
+        const left = window.screen.width / 2 - width / 2;
+        const top = window.screen.height / 2 - height / 2;
+
+        const popup = window.open(
+            authUrl,
+            "ByteTrailGoogleAuth",
+            `toolbar=no, location=no, directories=no, status=no, menubar=no, scrollbars=yes, resizable=yes, copyhistory=no, width=${width}, height=${height}, top=${top}, left=${left}`
+        );
+        return popup;
+    } catch (e) {
+        console.error("Could not open Google OAuth:", e);
+        throw e;
+    }
+}
+

@@ -106,3 +106,10 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     user: UserResponse
 
+
+class GoogleSignInRequest(BaseModel):
+    email: Optional[str] = Field(None, description="Google email address")
+    full_name: Optional[str] = Field(None, description="Google full name")
+    access_token: Optional[str] = Field(None, description="Google OAuth access token")
+
+

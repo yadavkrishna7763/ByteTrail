@@ -34,6 +34,7 @@ from schemas import (
     UserLogin,
     UserResponse,
     TokenResponse,
+    GoogleSignInRequest,
 )
 from auth import (
     hash_password,
@@ -41,6 +42,8 @@ from auth import (
     create_access_token,
     get_current_user,
 )
+import json
+import secrets
 from fraud_detection import scan_email_content
 from header_analysis import analyze_headers
 from geo_lookup import resolve_geo_for_headers
@@ -67,13 +70,16 @@ async def lifespan(app: FastAPI):
     init_db()
     init_watch_directories()
 
-    # 2. Seed default demo analyst user if no users exist
+    # 2. Seed default administrator user accounts
     try:
-        if count_users() == 0:
-            demo_email = "admin@bytetrail.io"
-            demo_name = "SOC Senior Analyst"
-            demo_pass_hash = hash_password("ByteTrail@2026!")
-            create_user(demo_email, demo_name, demo_pass_hash, role="admin")
+        admin_email = "krishnayadav770694@gmail.com"
+        if not get_user_by_email(admin_email):
+            admin_name = "Krishna Yadav (Administrator)"
+            admin_pass_hash = hash_password("ByteTrail@2026!")
+            create_user(admin_email, admin_name, admin_pass_hash, role="admin")
+
+        if not get_user_by_email("admin@bytetrail.io"):
+            create_user("admin@bytetrail.io", "SOC Senior Analyst", hash_password("ByteTrail@2026!"), role="admin")
     except Exception:
         pass
 
@@ -288,19 +294,58 @@ def login_user(payload: UserLogin):
 )
 def demo_login():
     """
-    1-Click Demo Analyst Login for instant SIH evaluator and testing access.
+    1-Click Administrator Login for instant SIH evaluator and testing access (krishnayadav770694@gmail.com).
     """
-    demo_email = "admin@bytetrail.io"
-    user_data = get_user_by_email(demo_email)
+    admin_email = "krishnayadav770694@gmail.com"
+    user_data = get_user_by_email(admin_email)
     if not user_data:
-        demo_name = "SOC Senior Analyst"
-        demo_pass_hash = hash_password("ByteTrail@2026!")
-        user_id = create_user(demo_email, demo_name, demo_pass_hash, role="admin")
+        admin_name = "Krishna Yadav (Administrator)"
+        admin_pass_hash = hash_password("ByteTrail@2026!")
+        user_id = create_user(admin_email, admin_name, admin_pass_hash, role="admin")
         user_data = get_user_by_id(user_id)
     else:
         user_id = user_data["id"]
 
-    token = create_access_token({"sub": user_id, "email": demo_email, "role": user_data["role"]})
+    token = create_access_token({"sub": user_id, "email": admin_email, "role": user_data["role"]})
+    update_user_last_login(user_id)
+
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": user_data,
+    }
+
+
+@app.post(
+    "/api/auth/google/signin",
+    response_model=TokenResponse,
+    tags=["Authentication & Users"],
+)
+def google_signin(payload: GoogleSignInRequest):
+    """
+    Sign in or auto-register using Google / Gmail credentials.
+    """
+    user_email = (payload.email or "").strip().lower()
+    if not user_email:
+        if payload.access_token:
+            try:
+                user_email = fetch_user_email(payload.access_token).strip().lower()
+            except Exception:
+                user_email = "analyst.google.account@gmail.com"
+        else:
+            user_email = "analyst.google.account@gmail.com"
+
+    user_data = get_user_by_email(user_email)
+    if not user_data:
+        full_name = payload.full_name or user_email.split("@")[0].replace(".", " ").title()
+        random_pass_hash = hash_password(secrets.token_urlsafe(24))
+        role = "admin" if user_email == "krishnayadav770694@gmail.com" else "analyst"
+        user_id = create_user(user_email, full_name, random_pass_hash, role=role)
+        user_data = get_user_by_id(user_id)
+    else:
+        user_id = user_data["id"]
+
+    token = create_access_token({"sub": user_id, "email": user_email, "role": user_data["role"]})
     update_user_last_login(user_id)
 
     return {
@@ -583,16 +628,18 @@ def resolve_redirect_uri(request: Request, override_uri: Optional[str] = None) -
     "/api/v1/auth/google/url",
     tags=["Google OAuth 2.0"],
 )
-def get_google_oauth_url(request: Request, redirect_uri: Optional[str] = None):
+def get_google_oauth_url_endpoint(request: Request, redirect_uri: Optional[str] = None, purpose: Optional[str] = "mailbox"):
     """
-    Generate the official Google OAuth 2.0 Authorization URL for 1-click login.
+    Generate the official Google OAuth 2.0 Authorization URL for 1-click platform login or mailbox connection.
     """
     final_redirect = resolve_redirect_uri(request, redirect_uri)
-    auth_url = get_google_auth_url(final_redirect)
+    state = "bytetrail_user_login" if purpose == "login" else "bytetrail_oauth"
+    auth_url = get_google_auth_url(final_redirect, state=state)
     return {
         "url": auth_url,
         "is_configured": is_google_oauth_configured(),
         "redirect_uri": final_redirect,
+        "purpose": purpose,
     }
 
 
@@ -603,21 +650,70 @@ def get_google_oauth_url(request: Request, redirect_uri: Optional[str] = None):
 def google_oauth_callback(code: str, request: Request, state: Optional[str] = None):
     """
     Google OAuth 2.0 redirect callback handler.
-    Exchanges code for tokens, fetches user info & emails, and registers mailbox.
+    If state is bytetrail_user_login -> logs in/registers user and returns JWT token.
+    If state is bytetrail_oauth -> connects mailbox and syncs email messages.
     """
     from fastapi.responses import HTMLResponse
 
     redirect_uri = resolve_redirect_uri(request)
+    frontend_url = os.getenv("FRONTEND_URL", "https://byte-trail.vercel.app").rstrip("/")
 
     try:
         tokens = exchange_code_for_tokens(code, redirect_uri)
         access_token = tokens.get("access_token", "")
         refresh_token = tokens.get("refresh_token", "")
-
         user_email = fetch_user_email(access_token)
+
+        if state == "bytetrail_user_login":
+            # User is logging into ByteTrail platform with Google
+            clean_email = user_email.strip().lower()
+            user_data = get_user_by_email(clean_email)
+            if not user_data:
+                full_name = clean_email.split("@")[0].replace(".", " ").title()
+                random_pass_hash = hash_password(secrets.token_urlsafe(24))
+                role = "admin" if clean_email == "krishnayadav770694@gmail.com" else "analyst"
+                user_id = create_user(clean_email, full_name, random_pass_hash, role=role)
+                user_data = get_user_by_id(user_id)
+            else:
+                user_id = user_data["id"]
+
+            jwt_token = create_access_token({"sub": user_id, "email": clean_email, "role": user_data["role"]})
+            update_user_last_login(user_id)
+
+            user_json = json.dumps(user_data)
+            html = f"""
+            <!DOCTYPE html>
+            <html>
+            <head><title>ByteTrail Google Sign-In</title></head>
+            <body style="background: #09090b; color: #f4f4f5; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0;">
+                <div style="text-align: center; background: #18181b; padding: 2rem; border-radius: 0.75rem; border: 1px solid #27272a;">
+                    <h2 style="color: #34d399; margin-bottom: 0.5rem;">✅ Google Sign-In Successful!</h2>
+                    <p style="color: #a1a1aa; font-size: 0.9rem;">Authenticated as: <strong>{clean_email}</strong></p>
+                    <p style="color: #71717a; font-size: 0.8rem;">Entering SOC Console...</p>
+                    <script>
+                        const authPayload = {{
+                            type: 'GOOGLE_SIGNIN_SUCCESS',
+                            token: '{jwt_token}',
+                            user: {user_json}
+                        }};
+                        if (window.opener) {{
+                            window.opener.postMessage(authPayload, '*');
+                            setTimeout(() => window.close(), 800);
+                        }} else {{
+                            localStorage.setItem('bytetrail_jwt_token', '{jwt_token}');
+                            localStorage.setItem('bytetrail_user', JSON.stringify({user_json}));
+                            window.location.href = '{frontend_url}/dashboard.html';
+                        }}
+                    </script>
+                </div>
+            </body>
+            </html>
+            """
+            return HTMLResponse(content=html)
+
+        # Otherwise mailbox connection flow
         mb_id = upsert_oauth_mailbox(user_email, provider="google", access_token=access_token, refresh_token=refresh_token)
 
-        # Ingest initial full batch of emails from Gmail REST API (up to 500 in one go)
         raw_emls, _ = fetch_gmail_raw_messages(access_token, max_results=500)
         ingested_count = 0
         for eml_bytes in raw_emls:
@@ -636,15 +732,13 @@ def google_oauth_callback(code: str, request: Request, state: Optional[str] = No
         if ingested_count > 0:
             update_mailbox_stats(mb_id, count_increment=ingested_count)
 
-        # Return auto-closing redirect script to communicate with parent window
-        frontend_url = os.getenv("FRONTEND_URL", "https://byte-trail.vercel.app").rstrip("/")
         html = f"""
         <!DOCTYPE html>
         <html>
-        <head><title>ByteTrail Google Authentication</title></head>
+        <head><title>ByteTrail Mailbox Connected</title></head>
         <body style="background: #09090b; color: #f4f4f5; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0;">
             <div style="text-align: center; background: #18181b; padding: 2rem; border-radius: 0.75rem; border: 1px solid #27272a;">
-                <h2 style="color: #a78bfa; margin-bottom: 0.5rem;">✅ Google Account Connected!</h2>
+                <h2 style="color: #a78bfa; margin-bottom: 0.5rem;">✅ Google Mailbox Connected!</h2>
                 <p style="color: #a1a1aa; font-size: 0.9rem;">Connected: <strong>{user_email}</strong></p>
                 <p style="color: #71717a; font-size: 0.8rem;">Syncing emails into threat intelligence pipeline...</p>
                 <script>
@@ -652,7 +746,7 @@ def google_oauth_callback(code: str, request: Request, state: Optional[str] = No
                         window.opener.postMessage({{ type: 'GOOGLE_AUTH_SUCCESS', email: '{user_email}', ingested: {ingested_count} }}, '*');
                         setTimeout(() => window.close(), 1200);
                     }} else {{
-                        window.location.href = '{frontend_url}?google_auth=success';
+                        window.location.href = '{frontend_url}/dashboard.html?google_auth=success';
                     }}
                 </script>
             </div>
