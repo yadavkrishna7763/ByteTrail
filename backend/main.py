@@ -2,6 +2,7 @@ import os
 from contextlib import asynccontextmanager
 from typing import List, Optional, Dict
 from pathlib import Path
+from datetime import timedelta
 from fastapi import FastAPI, HTTPException, UploadFile, File, Request, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -42,6 +43,7 @@ from auth import (
     create_access_token,
     get_current_user,
     get_optional_current_user,
+    verify_access_token,
 )
 import json
 import secrets
@@ -446,14 +448,14 @@ async def upload_raw_eml_file(
 )
 def connect_mailbox(
     req: MailboxConnectRequest,
-    current_user: Optional[dict] = Depends(get_optional_current_user),
+    current_user: dict = Depends(get_current_user),
 ):
     """
     Connect any live email account (Gmail, Outlook, Yahoo, or Custom IMAP)
     to automatically monitor and run all incoming emails through ByteTrail.
     """
     provider = req.provider.lower() if req.provider else "custom"
-    user_id = current_user["id"] if current_user else None
+    user_id = current_user["id"]
     
     # Resolve host/port from presets
     if provider in PROVIDER_PRESETS and not req.host:
@@ -525,12 +527,12 @@ def connect_mailbox(
     response_model=List[MailboxResponse],
     tags=["Connected Mailboxes"],
 )
-def list_connected_mailboxes(current_user: Optional[dict] = Depends(get_optional_current_user)):
+def list_connected_mailboxes(current_user: dict = Depends(get_current_user)):
     """
     List all connected live email accounts for the authenticated user (or all if admin).
     """
-    user_id = current_user["id"] if current_user else None
-    is_admin = (current_user and current_user.get("role") == "admin") or False
+    user_id = current_user["id"]
+    is_admin = current_user.get("role") == "admin"
     return get_all_connected_mailboxes(user_id=user_id, is_admin=is_admin)
     """
     List all connected live email accounts and their automated monitoring status.
@@ -542,14 +544,23 @@ def list_connected_mailboxes(current_user: Optional[dict] = Depends(get_optional
     "/api/v1/mailboxes/{mailbox_id}/sync",
     tags=["Connected Mailboxes"],
 )
-def sync_mailbox(mailbox_id: int):
-    """
-    Trigger an instant scan/poll for a specific connected mailbox (new unread emails only).
-    """
-    mailboxes = get_all_connected_mailboxes()
+def _get_owned_mailbox(mailbox_id: int, current_user: dict) -> dict:
+    """Return a mailbox only when it belongs to the current user (or admin)."""
+    mailboxes = get_all_connected_mailboxes(
+        user_id=current_user["id"],
+        is_admin=current_user.get("role") == "admin",
+    )
     match = next((m for m in mailboxes if m["id"] == mailbox_id), None)
     if not match:
         raise HTTPException(status_code=404, detail="Connected mailbox not found.")
+    return match
+
+
+def sync_mailbox(mailbox_id: int, current_user: dict = Depends(get_current_user)):
+    """
+    Trigger an instant scan/poll for a specific connected mailbox (new unread emails only).
+    """
+    match = _get_owned_mailbox(mailbox_id, current_user)
 
     try:
         res = mailbox_manager._poll_single_mailbox(match, include_read=False, limit=20)
@@ -578,16 +589,14 @@ def deep_scan_mailbox(
     mailbox_id: int,
     batch_size: int = 500,
     offset: int = 0,
-    page_token: Optional[str] = None
+    page_token: Optional[str] = None,
+    current_user: dict = Depends(get_current_user),
 ):
     """
     Max throughput deep scan of historical emails in batches of up to 500 (both read and unread).
     Iterate with offset/page_token until has_more is False to scan the entire mailbox.
     """
-    mailboxes = get_all_connected_mailboxes()
-    match = next((m for m in mailboxes if m["id"] == mailbox_id), None)
-    if not match:
-        raise HTTPException(status_code=404, detail="Connected mailbox not found.")
+    match = _get_owned_mailbox(mailbox_id, current_user)
 
     try:
         res = mailbox_manager._poll_single_mailbox(
@@ -624,10 +633,11 @@ def deep_scan_mailbox(
     status_code=status.HTTP_204_NO_CONTENT,
     tags=["Connected Mailboxes"],
 )
-def disconnect_mailbox(mailbox_id: int):
+def disconnect_mailbox(mailbox_id: int, current_user: dict = Depends(get_current_user)):
     """
     Disconnect and remove an automated email monitoring account.
     """
+    _get_owned_mailbox(mailbox_id, current_user)
     delete_connected_mailbox(mailbox_id)
     return None
 
@@ -640,9 +650,12 @@ def resolve_redirect_uri(request: Request, override_uri: Optional[str] = None) -
     if override_uri:
         return override_uri
     env_redirect = os.getenv("GOOGLE_REDIRECT_URI", "").strip()
-    if env_redirect:
-        return env_redirect
     host_header = request.headers.get("host", "127.0.0.1:8000")
+    # Keep local development convenient, while never send a deployed user back
+    # to localhost because a checked-in local redirect setting was present.
+    is_local_request = host_header.startswith(("localhost", "127.0.0.1"))
+    if env_redirect and (is_local_request or "localhost" not in env_redirect):
+        return env_redirect
     scheme = "https" if ("https" in str(request.url.scheme) or "onrender.com" in host_header or "vercel.app" in host_header) else "http"
     return f"{scheme}://{host_header}/api/v1/auth/google/callback"
 
@@ -651,12 +664,26 @@ def resolve_redirect_uri(request: Request, override_uri: Optional[str] = None) -
     "/api/v1/auth/google/url",
     tags=["Google OAuth 2.0"],
 )
-def get_google_oauth_url_endpoint(request: Request, redirect_uri: Optional[str] = None, purpose: Optional[str] = "mailbox"):
+def get_google_oauth_url_endpoint(
+    request: Request,
+    redirect_uri: Optional[str] = None,
+    purpose: Optional[str] = "mailbox",
+    current_user: Optional[dict] = Depends(get_optional_current_user),
+):
     """
     Generate the official Google OAuth 2.0 Authorization URL for 1-click platform login or mailbox connection.
     """
     final_redirect = resolve_redirect_uri(request, redirect_uri)
-    state = "bytetrail_user_login" if purpose == "login" else "bytetrail_oauth"
+    if purpose == "login":
+        state = "bytetrail_user_login"
+    else:
+        if not current_user:
+            raise HTTPException(status_code=401, detail="Sign in before connecting a Gmail inbox.")
+        # A short-lived signed state binds the Google callback to this ByteTrail user.
+        state = create_access_token(
+            {"sub": current_user["id"], "purpose": "gmail_connect"},
+            expires_delta=timedelta(minutes=10),
+        )
     auth_url = get_google_auth_url(final_redirect, state=state)
     return {
         "url": auth_url,
@@ -734,9 +761,14 @@ def google_oauth_callback(code: str, request: Request, state: Optional[str] = No
             """
             return HTMLResponse(content=html)
 
-        # Otherwise mailbox connection flow
-        user_record = get_user_by_email(user_email.strip().lower())
-        mb_user_id = user_record["id"] if user_record else None
+        # Mailbox connection flow. State is a short-lived signed token generated
+        # while the dashboard user was authenticated, not a user-controlled email.
+        state_payload = verify_access_token(state or "")
+        if state_payload.get("purpose") != "gmail_connect":
+            raise ValueError("Invalid Google mailbox connection state.")
+        mb_user_id = int(state_payload["sub"])
+        if not get_user_by_id(mb_user_id):
+            raise ValueError("The ByteTrail account for this connection no longer exists.")
         mb_id = upsert_oauth_mailbox(user_email, provider="google", access_token=access_token, refresh_token=refresh_token, user_id=mb_user_id)
 
         raw_emls, _ = fetch_gmail_raw_messages(access_token, max_results=500)

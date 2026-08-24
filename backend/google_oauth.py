@@ -144,16 +144,10 @@ def fetch_gmail_raw_messages(
     with httpx.Client(timeout=60.0) as client:
         list_resp = client.get(url, headers=headers)
         if list_resp.status_code != 200:
-            logger.warning("Gmail API messages list returned %d (gmail.readonly scope omitted on GCP consent screen). Generating initial threat test cases.", list_resp.status_code)
-            sample_eml = (
-                b"From: security-alert@paypal-verification.ru\r\n"
-                b"To: me@gmail.com\r\n"
-                b"Subject: Action Required: Account Suspended within 24 hours\r\n"
-                b"Received: from mail.paypal-verification.ru (185.220.101.5) by mx.google.com\r\n"
-                b"Content-Type: text/plain; charset=UTF-8\r\n\r\n"
-                b"Dear user, your account has been temporarily restricted. Please verify your login credentials immediately: http://paypal-verification.ru/login"
+            logger.warning("Gmail API messages list returned %d: %s", list_resp.status_code, list_resp.text)
+            raise ValueError(
+                "Gmail could not read this inbox. Reconnect and approve the Gmail read-only permission."
             )
-            return [sample_eml], None
 
         data = list_resp.json()
         messages_list = data.get("messages", [])

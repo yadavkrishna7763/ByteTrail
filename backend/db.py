@@ -323,16 +323,21 @@ def init_db(conn=None):
     logger.info("Database initialized successfully using engine: %s", ACTIVE_ENGINE)
 
 
-def check_email_exists_by_hash(sha256_hash: str) -> Optional[int]:
-    """Check if an email with the given SHA-256 evidence hash already exists in DB."""
+def check_email_exists_by_hash(sha256_hash: str, user_id: Optional[int] = None) -> Optional[int]:
+    """Check for an existing evidence hash within one user's case feed."""
     if not sha256_hash:
         return None
     conn = get_connection()
     cursor = conn.cursor()
-    if ACTIVE_ENGINE == "mysql":
-        cursor.execute("SELECT id FROM emails WHERE sha256_hash = %s LIMIT 1", (sha256_hash,))
+    if user_id is None:
+        if ACTIVE_ENGINE == "mysql":
+            cursor.execute("SELECT id FROM emails WHERE sha256_hash = %s AND user_id IS NULL LIMIT 1", (sha256_hash,))
+        else:
+            cursor.execute("SELECT id FROM emails WHERE sha256_hash = ? AND user_id IS NULL LIMIT 1", (sha256_hash,))
+    elif ACTIVE_ENGINE == "mysql":
+        cursor.execute("SELECT id FROM emails WHERE sha256_hash = %s AND user_id = %s LIMIT 1", (sha256_hash, user_id))
     else:
-        cursor.execute("SELECT id FROM emails WHERE sha256_hash = ? LIMIT 1", (sha256_hash,))
+        cursor.execute("SELECT id FROM emails WHERE sha256_hash = ? AND user_id = ? LIMIT 1", (sha256_hash, user_id))
     row = cursor.fetchone()
     cursor.close()
     conn.close()
@@ -658,9 +663,9 @@ def get_all_connected_mailboxes(active_only: bool = False, user_id: Optional[int
         conditions.append("is_active = 1")
     if not is_admin and user_id is not None:
         if ACTIVE_ENGINE == "mysql":
-            conditions.append("(user_id = %s OR user_id IS NULL)")
+            conditions.append("user_id = %s")
         else:
-            conditions.append("(user_id = ? OR user_id IS NULL)")
+            conditions.append("user_id = ?")
         params.append(user_id)
 
     clause = ("WHERE " + " AND ".join(conditions)) if conditions else ""
@@ -968,4 +973,3 @@ def count_users() -> int:
     cursor.close()
     conn.close()
     return count
-

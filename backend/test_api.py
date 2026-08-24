@@ -151,8 +151,9 @@ def test_connected_mailboxes_api():
         )
         assert mb_id is not None
 
-        # 2. Query list endpoint
-        resp = c.get("/api/v1/mailboxes")
+        # 2. Query list endpoint as the administrator (the endpoint is protected)
+        login = c.post("/api/auth/demo-login").json()
+        resp = c.get("/api/v1/mailboxes", headers={"Authorization": f"Bearer {login['access_token']}"})
         assert resp.status_code == 200
         items = resp.json()
         found = any(m["id"] == mb_id for m in items)
@@ -264,6 +265,5 @@ def test_user_data_isolation():
         u2_subjects = [e["subject"] for e in u2_emails]
         assert "User 2 Confidential Alert" in u2_subjects
         assert "User 1 Confidential Alert" not in u2_subjects
-
 
 

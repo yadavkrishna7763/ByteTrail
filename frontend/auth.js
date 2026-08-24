@@ -149,6 +149,9 @@ async function openGoogleOAuthPopup(purpose = "login") {
     try {
         const res = await fetch(`${AUTH_API_BASE}/api/v1/auth/google/url?purpose=${purpose}`);
         const data = await res.json();
+        if (!res.ok || !data.url) {
+            throw new Error(data.detail || "Google sign-in is not available right now");
+        }
         const authUrl = data.url;
 
         const width = 520;
@@ -161,10 +164,13 @@ async function openGoogleOAuthPopup(purpose = "login") {
             "ByteTrailGoogleAuth",
             `toolbar=no, location=no, directories=no, status=no, menubar=no, scrollbars=yes, resizable=yes, copyhistory=no, width=${width}, height=${height}, top=${top}, left=${left}`
         );
+        // A blocked popup should not leave the user on a spinner forever.
+        if (!popup) {
+            window.location.assign(authUrl);
+        }
         return popup;
     } catch (e) {
         console.error("Could not open Google OAuth:", e);
         throw e;
     }
 }
-

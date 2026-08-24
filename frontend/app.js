@@ -974,8 +974,14 @@ async function handleGoogleOAuthLogin(e) {
     }
 
     try {
-        const res = await fetch(`${API_BASE}/api/v1/auth/google/url`);
+        const res = await fetch(`${API_BASE}/api/v1/auth/google/url?purpose=mailbox`, {
+            headers: getAuthHeaders()
+        });
         const data = await res.json();
+
+        if (!res.ok) {
+            throw new Error(data.detail || "Could not start Google connection.");
+        }
 
         if (data && data.url) {
             if (popupWindow && !popupWindow.closed) {
@@ -1017,7 +1023,7 @@ window.deepScanConnectedMailbox = async function(id) {
                 url += `&page_token=${encodeURIComponent(pageToken)}`;
             }
 
-            const res = await fetch(url, { method: "POST" });
+            const res = await fetch(url, { method: "POST", headers: getAuthHeaders() });
             if (!res.ok) {
                 const errData = await res.json().catch(() => ({}));
                 throw new Error(errData.detail || `Server error (${res.status})`);
@@ -1063,7 +1069,7 @@ window.deepScanConnectedMailbox = async function(id) {
 window.syncConnectedMailbox = async function(id) {
     showToast("Syncing mailbox for new unread emails...", "info");
     try {
-        const res = await fetch(`${API_BASE}/api/v1/mailboxes/${id}/sync`, { method: "POST" });
+        const res = await fetch(`${API_BASE}/api/v1/mailboxes/${id}/sync`, { method: "POST", headers: getAuthHeaders() });
         const data = await res.json();
         if (data.new_emails_detected > 0) {
             showToast(`✅ Detected and analyzed ${data.new_emails_detected} new incoming emails!`, "success");
@@ -1081,7 +1087,8 @@ window.syncConnectedMailbox = async function(id) {
 window.disconnectConnectedMailbox = async function(id) {
     if (!confirm("Are you sure you want to disconnect this mailbox?")) return;
     try {
-        await fetch(`${API_BASE}/api/v1/mailboxes/${id}`, { method: "DELETE" });
+        const res = await fetch(`${API_BASE}/api/v1/mailboxes/${id}`, { method: "DELETE", headers: getAuthHeaders() });
+        if (!res.ok) throw new Error(`Server error (${res.status})`);
         showToast("Mailbox disconnected.", "info");
         await loadConnectedMailboxes();
     } catch (e) {

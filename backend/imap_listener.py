@@ -154,7 +154,7 @@ class MultiMailboxManager:
                         evidence_hash = calculate_evidence_hash(
                             parsed["sender"], parsed["subject"], parsed["raw_headers"], parsed["body_text"]
                         )
-                        existing_id = check_email_exists_by_hash(evidence_hash)
+                        existing_id = check_email_exists_by_hash(evidence_hash, user_id=mb.get("user_id"))
                         if existing_id:
                             continue
                         record = self._pipeline_runner(
@@ -162,6 +162,7 @@ class MultiMailboxManager:
                             subject=parsed["subject"],
                             raw_headers=parsed["raw_headers"],
                             body_text=parsed["body_text"],
+                            user_id=mb.get("user_id"),
                         )
                         ingested_records.append(record)
                         self._stats["total_ingested"] += 1
@@ -233,7 +234,7 @@ class MultiMailboxManager:
                 # Evidence hash check for deduplication
                 clean_body = body_text.strip() or "(No readable text body)"
                 evidence_hash = calculate_evidence_hash(sender, subject, raw_headers, clean_body)
-                existing_id = check_email_exists_by_hash(evidence_hash)
+                existing_id = check_email_exists_by_hash(evidence_hash, user_id=mb.get("user_id"))
                 if existing_id:
                     continue
 
@@ -243,6 +244,7 @@ class MultiMailboxManager:
                     subject=subject,
                     raw_headers=raw_headers,
                     body_text=clean_body,
+                    user_id=mb.get("user_id"),
                 )
                 ingested_records.append(record)
                 self._stats["total_ingested"] += 1
