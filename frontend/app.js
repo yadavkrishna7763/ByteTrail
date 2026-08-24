@@ -464,18 +464,6 @@ function initEventListeners() {
     if (btnUserLogout) btnUserLogout.addEventListener("click", clearAuthSession);
 
     // Quick Detection Action Strip Buttons
-    const btnQuickGoogleMail = document.getElementById("btn-quick-connect-google-mail");
-    if (btnQuickGoogleMail) {
-        btnQuickGoogleMail.addEventListener("click", async () => {
-            showToast("🌐 Opening Google OAuth to connect live Gmail inbox...", "info");
-            try {
-                await openGoogleOAuthPopup("mailbox");
-            } catch (err) {
-                showToast(`❌ Google OAuth error: ${err.message}`, "error");
-            }
-        });
-    }
-
     const btnQuickScan = document.getElementById("btn-quick-scan-email");
     if (btnQuickScan) {
         btnQuickScan.addEventListener("click", () => {
