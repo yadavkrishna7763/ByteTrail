@@ -1163,7 +1163,7 @@ window.openForensicModal = function(id) {
                     <span class="auth-badge-tag ${email.dmarc_result === 'pass' ? 'pass' : email.dmarc_result === 'fail' ? 'fail' : 'none'}">DMARC: ${email.dmarc_result || 'none'}</span>
                 </div>
                 <div style="font-size: 0.72rem; color: ${email.header_valid ? 'var(--threat-low)' : 'var(--threat-high)'}; margin-top: 0.35rem;">
-                    ${email.header_valid ? '✅ Valid Signatures' : '⚠️ Unverified / Failed'}
+                    ${email.header_valid ? '✅ Signatures Validated' : '⚠️ Signatures Unverified / Failed'}
                 </div>
             </div>
         </div>
