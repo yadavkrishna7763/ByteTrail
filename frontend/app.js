@@ -852,14 +852,10 @@ async function loadConnectedMailboxes() {
                         <span class="badge-risk-pill low"><span class="pulse-dot"></span> LIVE POLLING</span>
                     </div>
 
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; background: var(--bg-input); padding: 0.65rem 0.85rem; border-radius: 0.4rem; border: 1px solid var(--border-subtle); margin-bottom: 0.85rem; font-size: 0.76rem;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-input); padding: 0.65rem 0.85rem; border-radius: 0.4rem; border: 1px solid var(--border-subtle); margin-bottom: 0.85rem; font-size: 0.76rem;">
                         <div>
-                            <span style="color: var(--text-muted); display: block;">Threats Captured</span>
-                            <strong style="color: var(--primary); font-family: var(--font-mono); font-size: 0.95rem;">${mb.total_ingested || 0}</strong>
-                        </div>
-                        <div>
-                            <span style="color: var(--text-muted); display: block;">Interval</span>
-                            <span style="color: var(--text-primary); font-family: var(--font-mono);">Every 60s</span>
+                            <span style="color: var(--text-muted); display: block;">Sync Schedule</span>
+                            <span style="color: var(--text-primary); font-family: var(--font-mono); font-weight: 600;">Continuous Automated Polling (Every 60s)</span>
                         </div>
                     </div>
 
