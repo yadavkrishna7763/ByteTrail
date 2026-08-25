@@ -558,12 +558,12 @@ def _get_owned_mailbox(mailbox_id: int, current_user: dict) -> dict:
 
 def sync_mailbox(mailbox_id: int, current_user: dict = Depends(get_current_user)):
     """
-    Trigger an instant scan/poll for a specific connected mailbox (new unread emails only).
+    Trigger an instant scan/poll for a specific connected mailbox (new unread emails in batches of 10).
     """
     match = _get_owned_mailbox(mailbox_id, current_user)
 
     try:
-        res = mailbox_manager._poll_single_mailbox(match, include_read=False, limit=20)
+        res = mailbox_manager._poll_single_mailbox(match, include_read=False, limit=10)
         ingested = res.get("records", []) if isinstance(res, dict) else res
         if ingested:
             update_mailbox_stats(mailbox_id, count_increment=len(ingested))
@@ -587,13 +587,13 @@ def sync_mailbox(mailbox_id: int, current_user: dict = Depends(get_current_user)
 )
 def deep_scan_mailbox(
     mailbox_id: int,
-    batch_size: int = 500,
+    batch_size: int = 10,
     offset: int = 0,
     page_token: Optional[str] = None,
     current_user: dict = Depends(get_current_user),
 ):
     """
-    Max throughput deep scan of historical emails in batches of up to 500 (both read and unread).
+    Sequential deep scan of historical emails in batches of 10 (both read and unread).
     Iterate with offset/page_token until has_more is False to scan the entire mailbox.
     """
     match = _get_owned_mailbox(mailbox_id, current_user)
@@ -602,7 +602,7 @@ def deep_scan_mailbox(
         res = mailbox_manager._poll_single_mailbox(
             match,
             include_read=True,
-            limit=batch_size or 500,
+            limit=batch_size or 10,
             offset=offset or 0,
             page_token=page_token
         )
@@ -771,7 +771,7 @@ def google_oauth_callback(code: str, request: Request, state: Optional[str] = No
             raise ValueError("The ByteTrail account for this connection no longer exists.")
         mb_id = upsert_oauth_mailbox(user_email, provider="google", access_token=access_token, refresh_token=refresh_token, user_id=mb_user_id)
 
-        raw_emls, _ = fetch_gmail_raw_messages(access_token, max_results=500)
+        raw_emls, _ = fetch_gmail_raw_messages(access_token, max_results=10)
         ingested_count = 0
         for eml_bytes in raw_emls:
             try:

@@ -136,12 +136,12 @@ def fetch_user_email(access_token: str) -> str:
 
 def fetch_gmail_raw_messages(
     access_token: str,
-    max_results: int = 500,
+    max_results: int = 10,
     page_token: Optional[str] = None,
     unread_only: bool = False,
 ) -> Tuple[List[bytes], Optional[str]]:
     """
-    Fetch raw RFC 822 email bytes from Gmail REST API (up to 500 per batch for maximum speed).
+    Fetch raw RFC 822 email bytes from Gmail REST API in batches of 10 for sequential scanning.
     Returns (raw_emails_list, next_page_token).
     """
     if access_token.startswith("mock_google_access_token_"):

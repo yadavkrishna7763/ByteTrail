@@ -107,8 +107,8 @@ class MultiMailboxManager:
 
         for mb in mailboxes:
             try:
-                # Keep continuous monitoring light: only a small unread batch.
-                res = self._poll_single_mailbox(mb, include_read=False, limit=20)
+                # Batch processing: fetch and scan 10 unread emails per polling cycle.
+                res = self._poll_single_mailbox(mb, include_read=False, limit=10)
                 ingested = res.get("records", []) if isinstance(res, dict) else res
                 if ingested:
                     all_ingested.extend(ingested)
@@ -123,11 +123,11 @@ class MultiMailboxManager:
         self,
         mb: dict,
         include_read: bool = False,
-        limit: int = 500,
+        limit: int = 10,
         offset: int = 0,
         page_token: Optional[str] = None
     ) -> Dict:
-        """Connect to single mailbox and extract new or historical emails in max throughput batches."""
+        """Connect to single mailbox and extract new or historical emails in batches of 10."""
         from compliance import calculate_evidence_hash
         from db import check_email_exists_by_hash, get_email_details
 
