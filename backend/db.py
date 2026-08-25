@@ -700,13 +700,26 @@ def get_all_connected_mailboxes(active_only: bool = False, user_id: Optional[int
             rec["use_ssl"] = bool(rec["use_ssl"])
         if rec.get("is_active") is not None:
             rec["is_active"] = bool(rec["is_active"])
-        if rec.get("total_ingested") is None:
-            rec["total_ingested"] = 0
 
-        # Non-admin additional safety check: do not return mailboxes of another email address
+        # Non-admin safety check: do not return mailboxes belonging to a different email address
         if not is_admin and user_email:
             if rec.get("email_address") and rec["email_address"].strip().lower() != user_email.strip().lower():
                 continue
+
+        # Dynamically compute exact real ingested email count for this user from the emails table
+        mb_user_id = rec.get("user_id")
+        if mb_user_id is not None:
+            cursor2 = conn.cursor()
+            if ACTIVE_ENGINE == "mysql":
+                cursor2.execute("SELECT COUNT(*) FROM emails WHERE user_id = %s", (mb_user_id,))
+            else:
+                cursor2.execute("SELECT COUNT(*) FROM emails WHERE user_id = ?", (mb_user_id,))
+            cnt_row = cursor2.fetchone()
+            real_count = cnt_row[0] if (cnt_row and cnt_row[0] is not None) else 0
+            cursor2.close()
+            rec["total_ingested"] = real_count
+        elif not is_admin:
+            rec["total_ingested"] = 0
 
         results.append(rec)
 
