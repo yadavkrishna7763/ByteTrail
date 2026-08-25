@@ -1492,27 +1492,33 @@ async function handleIngestSubmit(e) {
     }
 }
 
-// Sequential 4-Vector Pipeline Progress HUD Visualizer
+// Sequential 4-Vector Pipeline Progress HUD Visualizer (Modern Drop-Down Architecture)
 async function runSequential4VectorPipeline(emailResult) {
     const modal = document.getElementById("modal-pipeline-progress");
     const fill = document.getElementById("pipeline-progress-bar-fill");
     const pctLabel = document.getElementById("pipeline-pct-label");
     const statusBadge = document.getElementById("pipeline-status-badge");
     const terminal = document.getElementById("pipeline-live-terminal");
+    const proceedBtn = document.getElementById("btn-pipeline-proceed");
+
+    const senderLabel = document.getElementById("pipeline-target-sender");
+    const caseLabel = document.getElementById("pipeline-target-case");
 
     if (!modal) {
         openForensicModal(emailResult.id);
         return;
     }
 
+    if (senderLabel) senderLabel.textContent = emailResult.sender || "Unknown Sender";
+    if (caseLabel) caseLabel.textContent = `Case #${emailResult.id}`;
+    if (proceedBtn) proceedBtn.style.display = "none";
+
     const resetStepCard = (id, detailDefault, badgeDefault) => {
         const card = document.getElementById(id);
         const detail = document.getElementById(`${id}-detail`);
         const badge = document.getElementById(`${id}-badge`);
         if (card) {
-            card.style.borderColor = "var(--border-subtle)";
-            card.style.background = "rgba(24, 24, 27, 0.8)";
-            card.style.boxShadow = "none";
+            card.classList.remove("active");
         }
         if (detail) detail.textContent = detailDefault;
         if (badge) {
@@ -1553,16 +1559,12 @@ async function runSequential4VectorPipeline(emailResult) {
     const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 
     // ==========================================
-    // STEP 1: Vector 1 - Deceptive NLP Heuristics
+    // STEP 1: Vector 1 - Deceptive NLP Heuristics Drop
     // ==========================================
     const cardV1 = document.getElementById("step-v1");
     const badgeV1 = document.getElementById("step-v1-badge");
     const detailV1 = document.getElementById("step-v1-detail");
-    if (cardV1) {
-        cardV1.style.borderColor = "#3b82f6";
-        cardV1.style.background = "rgba(59, 130, 246, 0.08)";
-        cardV1.style.boxShadow = "0 0 15px rgba(59, 130, 246, 0.15)";
-    }
+    if (cardV1) cardV1.classList.add("active");
     if (badgeV1) {
         badgeV1.textContent = "ANALYZING...";
         badgeV1.style.background = "rgba(59, 130, 246, 0.2)";
@@ -1587,16 +1589,13 @@ async function runSequential4VectorPipeline(emailResult) {
     appendLog(`[VECTOR-1 COMPLETE] Deceptive NLP Fraud Score: ${fraudPct}%`, fraudPct >= 50 ? "#f87171" : "#34d399");
 
     // ==========================================
-    // STEP 2: Vector 2 - RFC 822 Forensic Headers
+    // STEP 2: Vector 2 - RFC 822 Forensic Headers Drop
     // ==========================================
+    await sleep(350);
     const cardV2 = document.getElementById("step-v2");
     const badgeV2 = document.getElementById("step-v2-badge");
     const detailV2 = document.getElementById("step-v2-detail");
-    if (cardV2) {
-        cardV2.style.borderColor = "#8b5cf6";
-        cardV2.style.background = "rgba(139, 92, 246, 0.08)";
-        cardV2.style.boxShadow = "0 0 15px rgba(139, 92, 246, 0.15)";
-    }
+    if (cardV2) cardV2.classList.add("active");
     if (badgeV2) {
         badgeV2.textContent = "AUDITING...";
         badgeV2.style.background = "rgba(139, 92, 246, 0.2)";
@@ -1625,16 +1624,13 @@ async function runSequential4VectorPipeline(emailResult) {
     appendLog(`[VECTOR-2 COMPLETE] Header Validation: SPF=${spf}, DKIM=${dkim}, DMARC=${dmarc}`, headerValid ? "#34d399" : "#f87171");
 
     // ==========================================
-    // STEP 3: Vector 3 - Origin GeoIP & Threat Intel
+    // STEP 3: Vector 3 - Origin GeoIP & Threat Intel Drop
     // ==========================================
+    await sleep(350);
     const cardV3 = document.getElementById("step-v3");
     const badgeV3 = document.getElementById("step-v3-badge");
     const detailV3 = document.getElementById("step-v3-detail");
-    if (cardV3) {
-        cardV3.style.borderColor = "#ec4899";
-        cardV3.style.background = "rgba(236, 72, 153, 0.08)";
-        cardV3.style.boxShadow = "0 0 15px rgba(236, 72, 153, 0.15)";
-    }
+    if (cardV3) cardV3.classList.add("active");
     if (badgeV3) {
         badgeV3.textContent = "RESOLVING...";
         badgeV3.style.background = "rgba(236, 72, 153, 0.2)";
@@ -1663,16 +1659,13 @@ async function runSequential4VectorPipeline(emailResult) {
     appendLog(`[VECTOR-3 COMPLETE] Origin GeoIP: ${geoLoc} [${ip}] | ASN: ${isp}`, isTor ? "#f87171" : "#34d399");
 
     // ==========================================
-    // STEP 4: Vector 4 - ISO 27037 Evidence Hash & Risk Rating
+    // STEP 4: Vector 4 - ISO 27037 Evidence Hash & Risk Rating Drop
     // ==========================================
+    await sleep(350);
     const cardV4 = document.getElementById("step-v4");
     const badgeV4 = document.getElementById("step-v4-badge");
     const detailV4 = document.getElementById("step-v4-detail");
-    if (cardV4) {
-        cardV4.style.borderColor = "#10b981";
-        cardV4.style.background = "rgba(16, 185, 129, 0.08)";
-        cardV4.style.boxShadow = "0 0 15px rgba(16, 185, 129, 0.15)";
-    }
+    if (cardV4) cardV4.classList.add("active");
     if (badgeV4) {
         badgeV4.textContent = "SEALING...";
         badgeV4.style.background = "rgba(16, 185, 129, 0.2)";
@@ -1698,9 +1691,14 @@ async function runSequential4VectorPipeline(emailResult) {
     }
     appendLog(`[VECTOR-4 COMPLETE] SHA-256 Sealed. Aggregated Rating: ${riskLevel.toUpperCase()} (${finalScore}/100)`, "#34d399");
 
-    await sleep(600);
-    modal.classList.add("hidden");
-    openForensicModal(emailResult.id);
+    // Display Phase Progression Confirmation Button (OK: Proceed to Forensic Incident Inspection Report)
+    if (proceedBtn) {
+        proceedBtn.style.display = "flex";
+        proceedBtn.onclick = () => {
+            modal.classList.add("hidden");
+            openForensicModal(emailResult.id);
+        };
+    }
 }
 
 // Open Forensic Inspection HUD Modal
