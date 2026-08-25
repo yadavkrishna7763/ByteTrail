@@ -655,8 +655,8 @@ def add_connected_mailbox(
     return mb_id
 
 
-def get_all_connected_mailboxes(active_only: bool = False, user_id: Optional[int] = None, is_admin: bool = False) -> list:
-    """Retrieve list of all connected mailboxes (filtered by user if not admin)."""
+def get_all_connected_mailboxes(active_only: bool = False, user_id: Optional[int] = None, is_admin: bool = False, user_email: Optional[str] = None) -> list:
+    """Retrieve list of connected mailboxes (strictly scoped to user if not admin)."""
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -665,7 +665,12 @@ def get_all_connected_mailboxes(active_only: bool = False, user_id: Optional[int
 
     if active_only:
         conditions.append("is_active = 1")
-    if not is_admin and user_id is not None:
+
+    if not is_admin:
+        if user_id is None:
+            cursor.close()
+            conn.close()
+            return []
         if ACTIVE_ENGINE == "mysql":
             conditions.append("user_id = %s")
         else:
@@ -695,19 +700,13 @@ def get_all_connected_mailboxes(active_only: bool = False, user_id: Optional[int
             rec["use_ssl"] = bool(rec["use_ssl"])
         if rec.get("is_active") is not None:
             rec["is_active"] = bool(rec["is_active"])
+        if rec.get("total_ingested") is None:
+            rec["total_ingested"] = 0
 
-        # Dynamically compute real ingested emails count for this user's mailbox from the emails table
-        mb_user_id = rec.get("user_id")
-        if mb_user_id is not None:
-            cursor2 = conn.cursor()
-            if ACTIVE_ENGINE == "mysql":
-                cursor2.execute("SELECT COUNT(*) FROM emails WHERE user_id = %s", (mb_user_id,))
-            else:
-                cursor2.execute("SELECT COUNT(*) FROM emails WHERE user_id = ?", (mb_user_id,))
-            cnt_row = cursor2.fetchone()
-            if cnt_row and cnt_row[0] is not None:
-                rec["total_ingested"] = cnt_row[0]
-            cursor2.close()
+        # Non-admin additional safety check: do not return mailboxes of another email address
+        if not is_admin and user_email:
+            if rec.get("email_address") and rec["email_address"].strip().lower() != user_email.strip().lower():
+                continue
 
         results.append(rec)
 

@@ -532,12 +532,9 @@ def list_connected_mailboxes(current_user: dict = Depends(get_current_user)):
     List all connected live email accounts for the authenticated user (or all if admin).
     """
     user_id = current_user["id"]
+    user_email = current_user.get("email")
     is_admin = current_user.get("role") == "admin"
-    return get_all_connected_mailboxes(user_id=user_id, is_admin=is_admin)
-    """
-    List all connected live email accounts and their automated monitoring status.
-    """
-    return get_all_connected_mailboxes()
+    return get_all_connected_mailboxes(user_id=user_id, is_admin=is_admin, user_email=user_email)
 
 
 @app.post(
