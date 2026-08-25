@@ -560,7 +560,7 @@ def sync_mailbox(mailbox_id: int, current_user: dict = Depends(get_current_user)
     match = _get_owned_mailbox(mailbox_id, current_user)
 
     try:
-        res = mailbox_manager._poll_single_mailbox(match, include_read=False, limit=10)
+        res = mailbox_manager._poll_single_mailbox(match, include_read=True, limit=10)
         ingested = res.get("records", []) if isinstance(res, dict) else res
         if ingested:
             update_mailbox_stats(mailbox_id, count_increment=len(ingested))

@@ -107,8 +107,8 @@ class MultiMailboxManager:
 
         for mb in mailboxes:
             try:
-                # Batch processing: fetch and scan 10 unread emails per polling cycle.
-                res = self._poll_single_mailbox(mb, include_read=False, limit=10)
+                # Batch processing: fetch and scan 10 emails (both read and unread) per polling cycle.
+                res = self._poll_single_mailbox(mb, include_read=True, limit=10)
                 ingested = res.get("records", []) if isinstance(res, dict) else res
                 if ingested:
                     all_ingested.extend(ingested)

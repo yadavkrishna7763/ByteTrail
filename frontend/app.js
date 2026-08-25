@@ -364,7 +364,7 @@ function initNavTabs() {
             // Scroll tab smoothly into view on mobile
             try {
                 tab.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
-            } catch (err) {}
+            } catch (err) { }
 
             const targetTab = tab.dataset.tab;
             document.querySelectorAll(".tab-pane").forEach(pane => {
@@ -611,7 +611,7 @@ function initEventListeners() {
     scenarioCards.forEach(card => {
         const scenarioKey = card.dataset.scenario;
         const triggerBtn = card.querySelector(".scenario-trigger-btn");
-        
+
         const loadHandler = () => {
             const data = SCENARIOS[scenarioKey];
             if (data) {
@@ -620,7 +620,7 @@ function initEventListeners() {
                 document.getElementById("raw-headers").value = data.headers;
                 document.getElementById("body-text").value = data.body;
                 showToast(`Loaded scenario: ${card.querySelector(".scenario-title").textContent}`, "info");
-                
+
                 // Scroll form into view
                 document.getElementById("ingest-form").scrollIntoView({ behavior: "smooth" });
             }
@@ -780,7 +780,7 @@ async function loadEmails(showFeedback = false) {
             headers: getAuthHeaders()
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        
+
         const latest = await res.json();
 
         // Check if new emails arrived during auto-polling
@@ -790,7 +790,7 @@ async function loadEmails(showFeedback = false) {
         }
 
         storedEmails = latest;
-        
+
         updateTelemetryStats(storedEmails);
         renderStreamFeed(storedEmails);
         applyFeedFilters();
@@ -836,7 +836,7 @@ async function loadConnectedMailboxes() {
         grid.innerHTML = connectedMailboxes.map(mb => {
             const providerIcon = (mb.provider === "gmail" || mb.provider === "google") ? "fa-google" : mb.provider === "outlook" ? "fa-microsoft" : mb.provider === "yahoo" ? "fa-yahoo" : "fa-envelope";
             const isGmail = mb.provider === "gmail" || mb.provider === "google";
-            
+
             return `
                 <div class="card" style="padding: 1.25rem; background: var(--bg-surface);">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
@@ -882,7 +882,7 @@ async function loadConnectedMailboxes() {
 }
 
 // Show the user's high-risk cases captured from their connected mailbox.
-window.viewMailboxThreats = async function() {
+window.viewMailboxThreats = async function () {
     await loadEmails(false);
     const feedTab = document.querySelector('.nav-tab[data-tab="feed"]');
     if (feedTab) feedTab.click();
@@ -1017,9 +1017,9 @@ async function handleGoogleOAuthLogin(e) {
 }
 
 // Trigger Deep Historical Scan for Mailbox (Read + Unread in 10-Email Sequential Batches)
-window.deepScanConnectedMailbox = async function(id) {
+window.deepScanConnectedMailbox = async function (id) {
     showToast("🚀 Initiating sequential deep scan (10 emails per batch)...", "info");
-    
+
     let offset = 0;
     let pageToken = null;
     let totalIngested = 0;
@@ -1030,7 +1030,7 @@ window.deepScanConnectedMailbox = async function(id) {
     try {
         while (hasMore) {
             showToast(`🔍 Scanning Batch #${batchIndex} (Emails ${offset + 1}–${offset + 10})...`, "info");
-            
+
             let url = `${API_BASE}/api/v1/mailboxes/${id}/deep-scan?batch_size=10&offset=${offset}`;
             if (pageToken) {
                 url += `&page_token=${encodeURIComponent(pageToken)}`;
@@ -1079,7 +1079,7 @@ window.deepScanConnectedMailbox = async function(id) {
 };
 
 // Trigger Manual Sync for Mailbox
-window.syncConnectedMailbox = async function(id) {
+window.syncConnectedMailbox = async function (id) {
     showToast("Syncing mailbox for new unread emails...", "info");
     try {
         const res = await fetch(`${API_BASE}/api/v1/mailboxes/${id}/sync`, { method: "POST", headers: getAuthHeaders() });
@@ -1097,7 +1097,7 @@ window.syncConnectedMailbox = async function(id) {
 };
 
 // Disconnect Mailbox
-window.disconnectConnectedMailbox = async function(id) {
+window.disconnectConnectedMailbox = async function (id) {
     if (!confirm("Are you sure you want to disconnect this mailbox?")) return;
     try {
         const res = await fetch(`${API_BASE}/api/v1/mailboxes/${id}`, { method: "DELETE", headers: getAuthHeaders() });
@@ -1432,7 +1432,7 @@ function updateAnalyticsMatrix(emails) {
     if (countryContainer) {
         countryContainer.innerHTML = sortedCountries.map(([country, count], idx) => `
             <div class="country-rank-item">
-                <span style="font-weight: 600;"><span style="color: var(--primary); font-family: var(--font-mono); margin-right: 0.4rem;">#${idx+1}</span> ${escapeHtml(country)}</span>
+                <span style="font-weight: 600;"><span style="color: var(--primary); font-family: var(--font-mono); margin-right: 0.4rem;">#${idx + 1}</span> ${escapeHtml(country)}</span>
                 <span style="font-family: var(--font-mono); background: rgba(255,255,255,0.06); padding: 0.15rem 0.5rem; border-radius: 0.3rem;">${count} incidents</span>
             </div>
         `).join("");
@@ -1698,7 +1698,7 @@ async function runSequential4VectorPipeline(emailResult) {
 }
 
 // Open Forensic Inspection HUD Modal
-window.openForensicModal = function(id) {
+window.openForensicModal = function (id) {
     const email = storedEmails.find(e => e.id === id);
     if (!email) return;
 
@@ -1801,7 +1801,7 @@ function closeForensicModal() {
 }
 
 // Download PDF Report Endpoint
-window.downloadReport = function(id) {
+window.downloadReport = function (id) {
     const url = `${API_BASE}/emails/${id}/report`;
     window.open(url, "_blank");
     showToast(`📄 Downloading Forensic Incident Report for Case #${id}...`, "info");
@@ -1814,7 +1814,7 @@ function showToast(message, type = "info") {
 
     const toast = document.createElement("div");
     toast.className = `toast-msg toast-${type}`;
-    
+
     let icon = "fa-circle-info";
     if (type === "success") icon = "fa-circle-check";
     if (type === "error") icon = "fa-triangle-exclamation";
