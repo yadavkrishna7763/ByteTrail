@@ -976,7 +976,10 @@ def list_emails(current_user: Optional[dict] = Depends(get_optional_current_user
     response_model=EmailDetailResponse,
     tags=["Emails & Forensics"],
 )
-def get_email(email_id: int):
+def get_email(
+    email_id: int,
+    current_user: Optional[dict] = Depends(get_optional_current_user)
+):
     """
     Retrieve forensic threat intelligence for a specific email by ID.
     """
@@ -986,6 +989,13 @@ def get_email(email_id: int):
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Email with ID {email_id} not found.",
         )
+    # Strict multi-tenant data isolation check
+    if current_user and current_user.get("role") != "admin":
+        if record.get("user_id") is not None and record.get("user_id") != current_user["id"]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied. You can only view emails from your own account.",
+            )
     return record
 
 
@@ -993,7 +1003,10 @@ def get_email(email_id: int):
     "/emails/{email_id}/report",
     tags=["Emails & Forensics"],
 )
-def download_forensic_report(email_id: int):
+def download_forensic_report(
+    email_id: int,
+    current_user: Optional[dict] = Depends(get_optional_current_user)
+):
     """
     Generate and stream downloadable PDF Forensic Incident Report for the given email ID.
     """
@@ -1003,6 +1016,13 @@ def download_forensic_report(email_id: int):
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Email with ID {email_id} not found.",
         )
+    # Strict multi-tenant data isolation check
+    if current_user and current_user.get("role") != "admin":
+        if record.get("user_id") is not None and record.get("user_id") != current_user["id"]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied. You can only view reports for your own emails.",
+            )
 
     try:
         report_path = generate_forensic_report(record)

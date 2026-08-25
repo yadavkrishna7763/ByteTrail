@@ -444,24 +444,28 @@ def save_analysis_results(
 
 
 def get_all_emails_enriched(user_id: Optional[int] = None, is_admin: bool = False) -> list:
-    """Retrieve all emails with their associated intelligence analysis data (scoped to user if not admin)."""
+    """Retrieve all emails with their associated intelligence analysis data (strictly scoped to user if not admin)."""
     conn = get_connection()
     cursor = conn.cursor()
 
     where_clause = ""
     params = ()
 
-    if not is_admin and user_id is not None:
+    if not is_admin:
+        if user_id is None:
+            cursor.close()
+            conn.close()
+            return []
         if ACTIVE_ENGINE == "mysql":
-            where_clause = "WHERE e.user_id = %s OR e.user_id IS NULL"
+            where_clause = "WHERE e.user_id = %s"
             params = (user_id,)
         else:
-            where_clause = "WHERE e.user_id = ? OR e.user_id IS NULL"
+            where_clause = "WHERE e.user_id = ?"
             params = (user_id,)
 
     query = f"""
         SELECT 
-            e.id, e.sender, e.subject, e.raw_headers, e.body_text, e.sha256_hash, e.received_at,
+            e.id, e.sender, e.subject, e.raw_headers, e.body_text, e.sha256_hash, e.received_at, e.user_id,
             a.fraud_score, a.header_valid, a.spf_result, a.dkim_result, a.dmarc_result,
             g.ip_address, g.country, g.city, g.latitude, g.longitude, g.isp_asn, g.is_vpn_tor,
             r.final_score, r.risk_level, r.threat_actor
@@ -510,7 +514,7 @@ def get_email_details(email_id: int):
     if ACTIVE_ENGINE == "mysql":
         query = """
             SELECT 
-                e.id, e.sender, e.subject, e.raw_headers, e.body_text, e.sha256_hash, e.received_at,
+                e.id, e.sender, e.subject, e.raw_headers, e.body_text, e.sha256_hash, e.received_at, e.user_id,
                 a.fraud_score, a.header_valid, a.spf_result, a.dkim_result, a.dmarc_result,
                 g.ip_address, g.country, g.city, g.latitude, g.longitude, g.isp_asn, g.is_vpn_tor,
                 r.final_score, r.risk_level, r.threat_actor
@@ -524,7 +528,7 @@ def get_email_details(email_id: int):
     else:
         query = """
             SELECT 
-                e.id, e.sender, e.subject, e.raw_headers, e.body_text, e.sha256_hash, e.received_at,
+                e.id, e.sender, e.subject, e.raw_headers, e.body_text, e.sha256_hash, e.received_at, e.user_id,
                 a.fraud_score, a.header_valid, a.spf_result, a.dkim_result, a.dmarc_result,
                 g.ip_address, g.country, g.city, g.latitude, g.longitude, g.isp_asn, g.is_vpn_tor,
                 r.final_score, r.risk_level, r.threat_actor
