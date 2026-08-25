@@ -1020,9 +1020,9 @@ async function handleGoogleOAuthLogin(e) {
     }
 }
 
-// Trigger Deep Historical Scan for Mailbox (Read + Unread in Max Speed Batches)
+// Trigger Deep Historical Scan for Mailbox (Read + Unread in 10-Email Sequential Batches)
 window.deepScanConnectedMailbox = async function(id) {
-    showToast("🚀 Initiating high-speed deep scan (up to 500 emails per batch)...", "info");
+    showToast("🚀 Initiating sequential deep scan (10 emails per batch)...", "info");
     
     let offset = 0;
     let pageToken = null;
@@ -1033,9 +1033,9 @@ window.deepScanConnectedMailbox = async function(id) {
 
     try {
         while (hasMore) {
-            showToast(`🔍 High-Speed Scanning Batch #${batchIndex} (Emails ${offset + 1}–${offset + 500})...`, "info");
+            showToast(`🔍 Scanning Batch #${batchIndex} (Emails ${offset + 1}–${offset + 10})...`, "info");
             
-            let url = `${API_BASE}/api/v1/mailboxes/${id}/deep-scan?batch_size=500&offset=${offset}`;
+            let url = `${API_BASE}/api/v1/mailboxes/${id}/deep-scan?batch_size=10&offset=${offset}`;
             if (pageToken) {
                 url += `&page_token=${encodeURIComponent(pageToken)}`;
             }
@@ -1053,7 +1053,7 @@ window.deepScanConnectedMailbox = async function(id) {
             totalIngested += batchIngested;
             totalScanned += scannedInBatch;
             hasMore = Boolean(data.has_more);
-            offset = data.next_offset !== undefined ? data.next_offset : (offset + 500);
+            offset = data.next_offset !== undefined ? data.next_offset : (offset + 10);
             pageToken = data.next_page_token || null;
 
             // Instantly refresh cases and radar map as each batch completes
