@@ -782,14 +782,24 @@ def upsert_oauth_mailbox(email_address: str, provider: str = "google", access_to
         row = cursor.fetchone()
         if row:
             mb_id = row[0] if isinstance(row, (list, tuple)) else row["id"]
-            cursor.execute(
-                """
-                UPDATE connected_mailboxes 
-                SET auth_type = 'oauth', access_token = %s, refresh_token = COALESCE(%s, refresh_token), is_active = 1, user_id = COALESCE(%s, user_id)
-                WHERE id = %s
-                """,
-                (access_token, refresh_token or None, user_id, mb_id),
-            )
+            if user_id is not None:
+                cursor.execute(
+                    """
+                    UPDATE connected_mailboxes 
+                    SET auth_type = 'oauth', access_token = %s, refresh_token = COALESCE(%s, refresh_token), is_active = 1, user_id = %s
+                    WHERE id = %s
+                    """,
+                    (access_token, refresh_token or None, user_id, mb_id),
+                )
+            else:
+                cursor.execute(
+                    """
+                    UPDATE connected_mailboxes 
+                    SET auth_type = 'oauth', access_token = %s, refresh_token = COALESCE(%s, refresh_token), is_active = 1
+                    WHERE id = %s
+                    """,
+                    (access_token, refresh_token or None, mb_id),
+                )
         else:
             cursor.execute(
                 """
@@ -804,14 +814,24 @@ def upsert_oauth_mailbox(email_address: str, provider: str = "google", access_to
         row = cursor.fetchone()
         if row:
             mb_id = row[0] if isinstance(row, (list, tuple)) else row["id"]
-            cursor.execute(
-                """
-                UPDATE connected_mailboxes 
-                SET auth_type = 'oauth', access_token = ?, refresh_token = COALESCE(?, refresh_token), is_active = 1, user_id = COALESCE(?, user_id)
-                WHERE id = ?
-                """,
-                (access_token, refresh_token or None, user_id, mb_id),
-            )
+            if user_id is not None:
+                cursor.execute(
+                    """
+                    UPDATE connected_mailboxes 
+                    SET auth_type = 'oauth', access_token = ?, refresh_token = COALESCE(?, refresh_token), is_active = 1, user_id = ?
+                    WHERE id = ?
+                    """,
+                    (access_token, refresh_token or None, user_id, mb_id),
+                )
+            else:
+                cursor.execute(
+                    """
+                    UPDATE connected_mailboxes 
+                    SET auth_type = 'oauth', access_token = ?, refresh_token = COALESCE(?, refresh_token), is_active = 1
+                    WHERE id = ?
+                    """,
+                    (access_token, refresh_token or None, mb_id),
+                )
         else:
             cursor.execute(
                 """

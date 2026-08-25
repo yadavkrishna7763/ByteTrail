@@ -129,7 +129,13 @@ class MultiMailboxManager:
     ) -> Dict:
         """Connect to single mailbox and extract new or historical emails in batches of 10."""
         from compliance import calculate_evidence_hash
-        from db import check_email_exists_by_hash, get_email_details
+        from db import check_email_exists_by_hash, get_email_details, get_user_by_email
+
+        target_user_id = mb.get("user_id")
+        if target_user_id is None and mb.get("email_address"):
+            u = get_user_by_email(mb["email_address"])
+            if u:
+                target_user_id = u["id"]
 
         host = mb.get("host", "")
         port = int(mb.get("port", 993))
@@ -176,7 +182,7 @@ class MultiMailboxManager:
                         evidence_hash = calculate_evidence_hash(
                             parsed["sender"], parsed["subject"], parsed["raw_headers"], parsed["body_text"]
                         )
-                        existing_id = check_email_exists_by_hash(evidence_hash, user_id=mb.get("user_id"))
+                        existing_id = check_email_exists_by_hash(evidence_hash, user_id=target_user_id)
                         if existing_id:
                             continue
                         record = self._pipeline_runner(
@@ -184,7 +190,7 @@ class MultiMailboxManager:
                             subject=parsed["subject"],
                             raw_headers=parsed["raw_headers"],
                             body_text=parsed["body_text"],
-                            user_id=mb.get("user_id"),
+                            user_id=target_user_id,
                         )
                         ingested_records.append(record)
                         self._stats["total_ingested"] += 1
@@ -256,7 +262,7 @@ class MultiMailboxManager:
                 # Evidence hash check for deduplication
                 clean_body = body_text.strip() or "(No readable text body)"
                 evidence_hash = calculate_evidence_hash(sender, subject, raw_headers, clean_body)
-                existing_id = check_email_exists_by_hash(evidence_hash, user_id=mb.get("user_id"))
+                existing_id = check_email_exists_by_hash(evidence_hash, user_id=target_user_id)
                 if existing_id:
                     continue
 
@@ -266,7 +272,7 @@ class MultiMailboxManager:
                     subject=subject,
                     raw_headers=raw_headers,
                     body_text=clean_body,
-                    user_id=mb.get("user_id"),
+                    user_id=target_user_id,
                 )
                 ingested_records.append(record)
                 self._stats["total_ingested"] += 1
